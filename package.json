@@ -1,0 +1,27 @@
+{
+  "name": "pawtrol",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pawtrol: a privacy-first browser agent that redacts sensitive data on-device before anything reaches a model.",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "watch": "node scripts/build.mjs --watch",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tests",
+    "test": "vitest run",
+    "e2e": "node tests/e2e/smoke.mjs",
+    "check": "npm run typecheck && npm test && npm run build"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.120.0",
+    "openai": "7.5.0"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.3.0",
+    "@types/node": "^24.13.5",
+    "esbuild": "^0.28.2",
+    "playwright": "^1.63.0",
+    "typescript": "^5.9.0",
+    "vitest": "^4.0.0"
+  }
+}
