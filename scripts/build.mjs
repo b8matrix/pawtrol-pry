@@ -59,7 +59,6 @@ const STATIC_FILES = [
   "manifest.json",
   "icons",
   "vendor",
-  "models",
   "styles.css",
   "theme.js",
   "theme-boot.js",
@@ -72,18 +71,28 @@ const STATIC_FILES = [
   "offscreen.html",
 ];
 
+const ORT_RUNTIME_FILES = ["ort-wasm-simd-threaded.jsep.mjs", "ort-wasm-simd-threaded.jsep.wasm"];
+// Models loaded at runtime (see src/offscreen/ppocr.ts, yunet.ts). The float
+// PP-OCR export stays in models/ as the quantization source only.
+const RUNTIME_MODELS = ["ch_PP-OCRv4_det_infer.quant.onnx", "face_detection_yunet_2023mar.onnx"];
+
 async function copyStatic() {
   for (const file of STATIC_FILES) {
     await cp(join(root, file), join(outdir, file), { recursive: true });
   }
-  // Copy onnxruntime-web wasm/js files to vendor/ort
-  try {
-    const ortDist = join(root, "node_modules", "onnxruntime-web", "dist");
-    const ortDest = join(outdir, "vendor", "ort");
-    await mkdir(ortDest, { recursive: true });
-    await cp(ortDist, ortDest, { recursive: true });
-  } catch (err) {
-    console.warn("Could not copy onnxruntime-web dist files:", err);
+  await mkdir(join(outdir, "models"), { recursive: true });
+  for (const model of RUNTIME_MODELS) {
+    await cp(join(root, "models", model), join(outdir, "models", model));
+  }
+
+  // onnxruntime-web's default bundle loads only the JSEP (WebGPU + WASM)
+  // runtime from ort.env.wasm.wasmPaths. Copying the whole dist/ added ~136 MB
+  // of unused builds; a missing file must fail the build, not warn.
+  const ortDist = join(root, "node_modules", "onnxruntime-web", "dist");
+  const ortDest = join(outdir, "vendor", "ort");
+  await mkdir(ortDest, { recursive: true });
+  for (const file of ORT_RUNTIME_FILES) {
+    await cp(join(ortDist, file), join(ortDest, file));
   }
 }
 

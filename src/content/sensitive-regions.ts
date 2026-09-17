@@ -3,6 +3,7 @@
 // document masks these on the screenshot before any model can see it.
 
 import { isLuhnValid, isValidAadhaar } from "../shared/checksums";
+import { mapRangeToOriginal, stripInvisibleWithMap } from "../shared/text";
 import type { SensitiveRegion } from "../shared/types";
 import { isVisible } from "./snapshot";
 
@@ -103,16 +104,19 @@ function idNumbersInText(patterns: RegExp[]): SensitiveRegion[] {
   const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   let node: Node | null;
   while ((node = walker.nextNode())) {
-    const text = node.textContent ?? "";
+    // Match with zero-width characters removed, then map back to real offsets.
+    const normalized = stripInvisibleWithMap(node.textContent ?? "");
+    const text = normalized.text;
     if (text.length < 8) continue;
     for (const pattern of patterns) {
       const match = text.match(pattern);
       if (!match || match.index === undefined) continue;
       const digits = match[0].replace(/\D/g, "");
       if ((digits.length === 12 && !isValidAadhaar(digits)) || (digits.length === 16 && !isLuhnValid(digits))) continue;
+      const [start, end] = mapRangeToOriginal(normalized, match.index, match.index + match[0].length);
       const range = document.createRange();
-      range.setStart(node, match.index);
-      range.setEnd(node, match.index + match[0].length);
+      range.setStart(node, start);
+      range.setEnd(node, end);
       const rect = range.getBoundingClientRect();
       range.detach();
       if (rect.width > 0 && rect.height > 0 && rect.top < innerHeight && rect.bottom > 0) {
@@ -172,6 +176,32 @@ export function findSensitiveRegions(): SensitiveRegion[] {
     if (aspect < 0.5 || aspect > 2) continue;
     covered.add(element);
     regions.push({ ...box(rect), kind: "face", label: "Profile/avatar image" });
+  }
+  return regions;
+}
+
+const MEDIA_SELECTOR = "canvas, img, svg, video, iframe, embed, object, picture";
+
+/**
+ * Where on screen content is drawn as pixels rather than DOM text: canvases,
+ * images, video, iframes and plugins. Text the vision model finds inside these
+ * boxes is invisible to DOM-based detection, so the offscreen pipeline OCRs it.
+ */
+export function findMediaRegions(): SensitiveRegion[] {
+  const regions: SensitiveRegion[] = [];
+  const consider = (element: Element) => {
+    if (!isVisible(element)) return;
+    const rect = element.getBoundingClientRect();
+    if (rect.width < 24 || rect.height < 12) return;
+    if (rect.bottom <= 0 || rect.top >= innerHeight || rect.right <= 0 || rect.left >= innerWidth) return;
+    regions.push({ ...box(rect), kind: "media", label: element.tagName.toLowerCase() });
+  };
+  for (const element of Array.from(document.querySelectorAll(MEDIA_SELECTOR))) consider(element);
+  // CSS background images can carry text too (scanned documents, banners).
+  for (const element of Array.from(document.querySelectorAll<HTMLElement>("div, section, span, a, header"))) {
+    if (regions.length >= 200) break;
+    const background = getComputedStyle(element).backgroundImage;
+    if (background && background !== "none" && background.includes("url(")) consider(element);
   }
   return regions;
 }

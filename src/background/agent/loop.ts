@@ -71,6 +71,17 @@ const NARRATION_FLUSH_MS = 60;
 const NARRATION_FLUSH_CHARS = 200;
 const PAGE_AFTER_ACTION = /\n\n--- Page after this action[\s\S]*$/;
 
+const SCREENSHOT_WITHHELD = "[Screenshot withheld: on-device redaction could not be verified, so no image was sent]";
+
+/**
+ * Fail closed: a redacted screenshot may leave the device only when the
+ * offscreen pipeline positively verified its masks. Missing or failed
+ * verification means the image stays local.
+ */
+export function isSafeToSend(processed: { redactedDataUrl?: string | null; verification?: { verified: boolean } }): boolean {
+  return Boolean(processed.redactedDataUrl) && processed.verification?.verified === true;
+}
+
 let entryCounter = 0;
 export const nextEntryId = () => `e${++entryCounter}`;
 
@@ -281,7 +292,9 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
           verification,
         });
         if (visionEnabled && apiKey && !signal.aborted) {
-          initialObservation = await appendVisionObservation(processed.redactedDataUrl, "");
+          initialObservation = isSafeToSend(processed)
+            ? await appendVisionObservation(processed.redactedDataUrl, "")
+            : SCREENSHOT_WITHHELD;
         }
       }
     } catch {}
@@ -720,7 +733,9 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
                   verification,
                 });
                 if (visionEnabled && apiKey && !signal.aborted) {
-                  content = await appendVisionObservation(processed.redactedDataUrl, content);
+                  content = isSafeToSend(processed)
+                    ? await appendVisionObservation(processed.redactedDataUrl, content)
+                    : `${content}\n\n${SCREENSHOT_WITHHELD}`;
                 }
               }
             } catch {}

@@ -6,6 +6,8 @@ export interface BoundingBox {
   confidence?: number;
   label?: string;
   kind?: string;
+  /** Which detector produced the box: "yunet", "facedetector", "heuristic", "ppocr", "dom". */
+  source?: string;
 }
 
 export interface VisualDetection {
@@ -18,6 +20,7 @@ export interface VisualDetection {
   };
   confidence: number;
   label: string;
+  source?: string;
 }
 
 export interface RedactionVerification {
