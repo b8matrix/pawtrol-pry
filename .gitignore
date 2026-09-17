@@ -26,3 +26,7 @@ tmp/
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Build & dependencies
+node_modules/
+dist/
