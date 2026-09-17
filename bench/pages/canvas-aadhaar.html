@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Bench - Canvas & PNG Embedded Identifiers</title>
+  <style>
+    body { font-family: system-ui, sans-serif; padding: 24px; background: #f8fafc; }
+    .card { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.08); margin-bottom: 20px; }
+    canvas { border: 1px solid #cbd5e1; border-radius: 4px; display: block; margin-top: 10px; }
+    img { border: 1px solid #cbd5e1; border-radius: 4px; display: block; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Canvas and Embedded Image Edge Cases</h1>
+  <p>This page renders sensitive PII onto non-DOM graphics: HTML5 canvas and an embedded PNG data URI.</p>
+
+  <div class="card">
+    <h2>1. HTML5 Canvas Rendered Aadhaar</h2>
+    <p>Aadhaar number rendered directly to bitmap canvas (invisible to regular DOM text extractors):</p>
+    <canvas id="aadhaarCanvas" width="380" height="90"></canvas>
+  </div>
+
+  <div class="card">
+    <h2>2. PNG Embedded PAN Card</h2>
+    <p>PAN Card number rasterized inside an image tag:</p>
+    <img id="panPngImage" alt="PAN Card Document" width="380" height="90" />
+  </div>
+
+  <script>
+    // Draw Aadhaar on canvas
+    const canvas = document.getElementById("aadhaarCanvas");
+    const ctx = canvas.getContext("2d");
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#1e293b";
+    ctx.font = "bold 20px sans-serif";
+    ctx.fillText("GOVERNMENT OF INDIA", 20, 30);
+    ctx.font = "bold 22px monospace";
+    ctx.fillStyle = "#0f172a";
+    // Verhoeff-valid Aadhaar number
+    ctx.fillText("2345 6789 0124", 20, 65);
+
+    // Render PAN to an offscreen canvas and export as PNG data URL
+    const offCanvas = document.createElement("canvas");
+    offCanvas.width = 380;
+    offCanvas.height = 90;
+    const offCtx = offCanvas.getContext("2d");
+    offCtx.fillStyle = "#f1f5f9";
+    offCtx.fillRect(0, 0, 380, 90);
+    offCtx.fillStyle = "#047857";
+    offCtx.font = "bold 18px sans-serif";
+    offCtx.fillText("INCOME TAX DEPARTMENT", 20, 30);
+    offCtx.fillStyle = "#0f172a";
+    offCtx.font = "bold 22px monospace";
+    offCtx.fillText("ABCDE1234F", 20, 65);
+    document.getElementById("panPngImage").src = offCanvas.toDataURL("image/png");
+  </script>
+</body>
+</html>

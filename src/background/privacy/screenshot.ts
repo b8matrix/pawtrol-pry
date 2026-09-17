@@ -3,6 +3,7 @@
 // sensitive regions, blurs faces and re-OCRs the result to verify the masks.
 
 import type { SensitiveRegion } from "../../shared/types";
+import { logVerification } from "./ledger";
 
 export interface VisualDetection {
   kind: string;
@@ -18,11 +19,21 @@ export interface RedactionVerification {
   summary: string;
 }
 
+export interface PipelineTimings {
+  detection: number;
+  ocr: number;
+  masking: number;
+  verification: number;
+  total: number;
+}
+
 export interface ProcessedScreenshot {
   redactedDataUrl: string;
   redactedCount: number;
   detections: VisualDetection[];
   verification?: RedactionVerification;
+  timings?: PipelineTimings;
+  backend?: string;
 }
 
 export interface CapturedScreenshot {
@@ -139,6 +150,23 @@ export async function captureAndProcessScreenshot(): Promise<CapturedScreenshot 
   const dpr = regionInfo?.dpr ?? 1;
   const regions = regionInfo?.regions ?? [];
   console.log(`[PRY] Screenshot: ${shot.width}x${shot.height} @ ${dpr}x DPR, ${regions.length} sensitive regions found`);
-  const processed = await processInOffscreen(shot.dataUrl, shot.width, shot.height, regions, dpr);
-  return { original: shot.dataUrl, processed };
+
+  try {
+    const processed = await processInOffscreen(shot.dataUrl, shot.width, shot.height, regions, dpr);
+    if (processed.timings) {
+      console.log(
+        `[PRY] Offscreen stage timings: det=${processed.timings.detection}ms, ocr=${processed.timings.ocr}ms, mask=${processed.timings.masking}ms, verify=${processed.timings.verification}ms (Backend: ${processed.backend ?? "unknown"})`,
+      );
+    }
+    return { original: shot.dataUrl, processed };
+  } catch (error) {
+    // Fail closed: abort screenshot entirely and record failure in privacy ledger
+    console.error("[PRY] Offscreen processing failed or timed out — failing closed:", error);
+    await logVerification(false, regions.length, 1, {
+      aborted: true,
+      error: error instanceof Error ? error.message : String(error),
+      timestamp: Date.now(),
+    }).catch(() => {});
+    return null;
+  }
 }

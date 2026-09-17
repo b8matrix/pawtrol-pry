@@ -1,0 +1,26 @@
+{
+  "testPage": "hidden-iframe-zerowidth.html",
+  "description": "Ground truth for zero-width Unicode injection and iframe text",
+  "expectedDetections": [
+    {
+      "source": "#zwAadhaar",
+      "kind": "id_number",
+      "type": "aadhaar",
+      "normalizedValue": "2345 6789 0124",
+      "checksum": "verhoeff",
+      "hasZeroWidthChars": true,
+      "mustRedact": true
+    },
+    {
+      "source": "iframe#secretIframe",
+      "kind": "credential",
+      "type": "card_number",
+      "value": "4111 1111 1111 1111",
+      "checksum": "luhn",
+      "inIframe": true,
+      "mustRedact": true
+    }
+  ],
+  "minRedactedRegions": 2,
+  "zeroRawPIIVisible": true
+}
