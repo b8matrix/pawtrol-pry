@@ -91,8 +91,8 @@ export function logAction(tool: string, success: boolean, elementId?: number) {
   return append("action", { tool, success, elementId });
 }
 
-export function logVerification(passed: boolean, regionsChecked: number, leakedCount: number) {
-  return append("verification", { passed, regionsChecked, leakedCount });
+export function logVerification(passed: boolean, regionsChecked: number, leakedCount: number, extra?: Record<string, unknown>) {
+  return append("verification", { passed, regionsChecked, leakedCount, ...extra });
 }
 
 export interface LedgerSummary {

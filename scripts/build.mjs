@@ -47,12 +47,19 @@ const entries = [
     format: "iife",
     sourcemap: false,
   },
+  // Ported offscreen vision pipeline
+  {
+    entryPoints: [join(root, "src/offscreen/index.ts")],
+    outfile: join(outdir, "offscreen/offscreen.js"),
+    format: "esm",
+  },
 ];
 
 const STATIC_FILES = [
   "manifest.json",
   "icons",
   "vendor",
+  "models",
   "styles.css",
   "theme.js",
   "theme-boot.js",
@@ -63,12 +70,20 @@ const STATIC_FILES = [
   "options.js",
   "options-profile.js",
   "offscreen.html",
-  "offscreen",
 ];
 
 async function copyStatic() {
   for (const file of STATIC_FILES) {
     await cp(join(root, file), join(outdir, file), { recursive: true });
+  }
+  // Copy onnxruntime-web wasm/js files to vendor/ort
+  try {
+    const ortDist = join(root, "node_modules", "onnxruntime-web", "dist");
+    const ortDest = join(outdir, "vendor", "ort");
+    await mkdir(ortDest, { recursive: true });
+    await cp(ortDist, ortDest, { recursive: true });
+  } catch (err) {
+    console.warn("Could not copy onnxruntime-web dist files:", err);
   }
 }
 

@@ -1,0 +1,18 @@
+{
+  "testPage": "idcard-faces.html",
+  "description": "Ground truth for ID card photo and profile faces",
+  "expectedDetections": [
+    {
+      "kind": "face",
+      "target": "#idFace",
+      "unconditionalBlur": true
+    },
+    {
+      "kind": "face",
+      "target": "#profileFace",
+      "unconditionalBlur": true
+    }
+  ],
+  "minFacesBlurred": 2,
+  "zeroFaceFeaturesVisible": true
+}

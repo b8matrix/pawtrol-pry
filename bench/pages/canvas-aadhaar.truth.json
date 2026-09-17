@@ -1,0 +1,23 @@
+{
+  "testPage": "canvas-aadhaar.html",
+  "description": "Ground truth for canvas and PNG embedded PII",
+  "expectedDetections": [
+    {
+      "kind": "id_number",
+      "type": "aadhaar",
+      "value": "2345 6789 0124",
+      "checksum": "verhoeff",
+      "source": "canvas#aadhaarCanvas",
+      "mustRedact": true
+    },
+    {
+      "kind": "id_number",
+      "type": "pan",
+      "value": "ABCDE1234F",
+      "source": "img#panPngImage",
+      "mustRedact": true
+    }
+  ],
+  "minRedactedRegions": 2,
+  "zeroDigitsAllowed": true
+}
