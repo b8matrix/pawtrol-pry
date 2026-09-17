@@ -16,6 +16,25 @@ export function configureOrtEnv(): void {
   }
 }
 
+// onnxruntime-web shares one WASM/WebGPU backend across sessions and does not
+// support overlapping session.run calls: concurrent runs fail with "Session
+// already started" / "Session mismatch" and can crash the document. Every
+// inference goes through this queue.
+let inferenceQueue: Promise<unknown> = Promise.resolve();
+
+export function runExclusive<T>(task: () => Promise<T>): Promise<T> {
+  const run = inferenceQueue.then(task, task);
+  inferenceQueue = run.catch(() => {});
+  return run;
+}
+
+export function runSession(
+  session: ort.InferenceSession,
+  feeds: Record<string, ort.Tensor>,
+): Promise<ort.InferenceSession.OnnxValueMapType> {
+  return runExclusive(() => session.run(feeds));
+}
+
 export function getModelUrl(fileName: string): string {
   if (typeof chrome !== "undefined" && chrome.runtime?.getURL) {
     return chrome.runtime.getURL(`models/${fileName}`);
@@ -61,7 +80,8 @@ export async function createSessionWithFallback(
   };
 
   return Promise.race([
-    loadPromise(),
+    // Session creation initializes the shared backend too, so it queues with inference.
+    runExclusive(loadPromise),
     new Promise<never>((_, reject) =>
       setTimeout(() => reject(new Error(`Model load timeout after ${timeoutMs}ms for ${modelUrl}`)), timeoutMs),
     ),

@@ -12,6 +12,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       message.height,
       message.sensitiveRegions ?? [],
       message.dpr ?? 1,
+      message.mediaRegions,
     )
       .then((result) => {
         chrome.runtime.sendMessage({

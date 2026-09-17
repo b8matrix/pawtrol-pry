@@ -1,5 +1,5 @@
 import * as ort from "onnxruntime-web";
-import { createSessionWithFallback, getModelUrl } from "./ort";
+import { createSessionWithFallback, getModelUrl, runSession } from "./ort";
 import type { BoundingBox } from "./types";
 
 let ppocrSession: ort.InferenceSession | null = null;
@@ -27,7 +27,7 @@ function prepareImageTensor(
   ctx: OffscreenCanvasRenderingContext2D,
   origW: number,
   origH: number,
-  maxSide = 640,
+  maxSide = 960,
 ): { tensor: ort.Tensor; targetW: number; targetH: number; scaleX: number; scaleY: number } {
   let targetW = origW;
   let targetH = origH;
@@ -65,78 +65,78 @@ function prepareImageTensor(
   };
 }
 
-/** Post-processes the probability map to find text bounding boxes */
-function extractBoxesFromProbMap(
+/** DB post-processing expansion ratio (PaddleOCR's det_db_unclip_ratio). */
+export const UNCLIP_RATIO = 2.0;
+
+/**
+ * DBNet post-processing: threshold the probability map, take 4-connected
+ * components at full map resolution, and "unclip" each box. DBNet predicts a
+ * deliberately shrunk text kernel, so each side is expanded by
+ * area * ratio / perimeter (the PaddleOCR formula). Without it boxes cover only
+ * the middle of each glyph row and OCR reads garbage.
+ */
+export function extractBoxesFromProbMap(
   probMap: Float32Array,
   mapW: number,
   mapH: number,
   scaleX: number,
   scaleY: number,
   thresh = 0.3,
+  unclipRatio = UNCLIP_RATIO,
 ): BoundingBox[] {
-  const binary = new Uint8Array(mapW * mapH);
-  for (let i = 0; i < binary.length; i++) {
-    binary[i] = probMap[i] > thresh ? 1 : 0;
-  }
-
-  const visited = new Uint8Array(binary.length);
+  const size = mapW * mapH;
+  const visited = new Uint8Array(size);
+  const stack = new Int32Array(size);
   const boxes: BoundingBox[] = [];
-  const step = 4;
 
-  for (let y = 0; y < mapH; y += step) {
-    for (let x = 0; x < mapW; x += step) {
-      const startIdx = y * mapW + x;
-      if (!binary[startIdx] || visited[startIdx]) continue;
+  for (let start = 0; start < size; start++) {
+    if (visited[start] || probMap[start] <= thresh) continue;
 
-      let minX = x, maxX = x, minY = y, maxY = y;
-      let count = 0;
-      const queue = [startIdx];
+    let minX = mapW, maxX = -1, minY = mapH, maxY = -1;
+    let count = 0;
+    let top = 0;
+    stack[top++] = start;
+    visited[start] = 1;
 
-      while (queue.length > 0 && count < 3000) {
-        const idx = queue.pop()!;
-        if (visited[idx]) continue;
-        visited[idx] = 1;
-        count++;
-
-        const cx = idx % mapW;
-        const cy = Math.floor(idx / mapW);
-        minX = Math.min(minX, cx);
-        maxX = Math.max(maxX, cx);
-        minY = Math.min(minY, cy);
-        maxY = Math.max(maxY, cy);
-
-        for (const [dx, dy] of [[-step, 0], [step, 0], [0, -step], [0, step]]) {
-          const nx = cx + dx;
-          const ny = cy + dy;
-          if (nx >= 0 && nx < mapW && ny >= 0 && ny < mapH) {
-            const nIdx = ny * mapW + nx;
-            if (binary[nIdx] && !visited[nIdx]) {
-              queue.push(nIdx);
-            }
-          }
+    while (top > 0) {
+      const idx = stack[--top];
+      const x = idx % mapW;
+      const y = (idx - x) / mapW;
+      count++;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+      const neighbors = [x > 0 ? idx - 1 : -1, x < mapW - 1 ? idx + 1 : -1, y > 0 ? idx - mapW : -1, y < mapH - 1 ? idx + mapW : -1];
+      for (const n of neighbors) {
+        if (n >= 0 && !visited[n] && probMap[n] > thresh) {
+          visited[n] = 1;
+          stack[top++] = n;
         }
       }
-
-      const boxW = maxX - minX;
-      const boxH = maxY - minY;
-      if (boxW >= 4 && boxH >= 4 && count >= 8) {
-        // Expand slightly (unclip)
-        const padX = Math.round(boxW * 0.1);
-        const padY = Math.round(boxH * 0.1);
-
-        boxes.push({
-          x: Math.max(0, Math.round((minX - padX) * scaleX)),
-          y: Math.max(0, Math.round((minY - padY) * scaleY)),
-          width: Math.round((boxW + padX * 2) * scaleX),
-          height: Math.round((boxH + padY * 2) * scaleY),
-          confidence: 0.9,
-          kind: "ocr_text",
-          label: "Detected text",
-        });
-      }
     }
-  }
 
+    const w = maxX - minX + 1;
+    const h = maxY - minY + 1;
+    if (count < 8 || w < 3 || h < 2) continue;
+
+    const offset = (w * h * unclipRatio) / (2 * (w + h));
+    const x0 = Math.max(0, minX - offset);
+    const y0 = Math.max(0, minY - offset);
+    const x1 = Math.min(mapW, maxX + 1 + offset);
+    const y1 = Math.min(mapH, maxY + 1 + offset);
+
+    boxes.push({
+      x: Math.floor(x0 * scaleX),
+      y: Math.floor(y0 * scaleY),
+      width: Math.ceil((x1 - x0) * scaleX),
+      height: Math.ceil((y1 - y0) * scaleY),
+      confidence: 0.9,
+      kind: "ocr_text",
+      label: "Detected text",
+      source: "ppocr",
+    });
+  }
   return boxes;
 }
 
@@ -151,7 +151,7 @@ export async function detectTextRegions(
 
   const inputName = session.inputNames[0];
   const feeds: Record<string, ort.Tensor> = { [inputName]: tensor };
-  const results = await session.run(feeds);
+  const results = await runSession(session, feeds);
 
   const outputName = session.outputNames[0];
   const outputTensor = results[outputName];

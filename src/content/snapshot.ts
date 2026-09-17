@@ -1,6 +1,7 @@
 // Builds the element list the planner sees. Each kept element is stored in
 // `registry` so later actions can address it by numeric id.
 
+import { stripInvisible } from "../shared/text";
 import type { ElementAttrs, PageElement, PageSnapshot } from "../shared/types";
 
 const MAX_ELEMENTS = 80;
@@ -43,7 +44,8 @@ export function isVisible(element: Element): boolean {
 
 function clean(text: string | null | undefined): string {
   if (!text) return "";
-  const collapsed = text.replace(/\s+/g, " ").trim();
+  // Zero-width characters can split an identifier past every detector.
+  const collapsed = stripInvisible(text).replace(/\s+/g, " ").trim();
   return collapsed.length > MAX_LABEL_CHARS ? `${collapsed.slice(0, MAX_LABEL_CHARS)}…` : collapsed;
 }
 
@@ -201,7 +203,7 @@ function mainText(): string {
     document.querySelector("article") ??
     document.body;
   const fallback = clean(root.innerText ?? "");
-  const text = (root.innerText ?? "").replace(/\s*\n\s*/g, "\n").trim();
+  const text = stripInvisible(root.innerText ?? "").replace(/\s*\n\s*/g, "\n").trim();
   return text.length > MAX_TEXT_CHARS ? `${text.slice(0, MAX_TEXT_CHARS)}\n…[truncated]` : text || fallback;
 }
 

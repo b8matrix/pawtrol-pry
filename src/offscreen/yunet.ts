@@ -1,6 +1,6 @@
 import * as ort from "onnxruntime-web";
 import { clusterBoxes } from "./blur";
-import { createSessionWithFallback, getModelUrl } from "./ort";
+import { createSessionWithFallback, getModelUrl, runSession } from "./ort";
 import type { BoundingBox } from "./types";
 
 let yunetSession: ort.InferenceSession | null = null;
@@ -207,24 +207,26 @@ export function detectSkinColorFaces(
   return clusterBoxes(found).slice(0, 8);
 }
 
-/** Detects faces using YuNet ONNX with fallback to native Chrome FaceDetector / skin heuristic */
+/**
+ * Detects faces with YuNet. If YuNet itself fails (model missing, backend
+ * error) the error propagates so the whole screenshot fails closed; a weaker
+ * detector must not silently stand in for it. When YuNet runs but finds no
+ * faces, Chrome's FaceDetector and a skin-colour heuristic add extra recall
+ * (over-blurring is the safe direction).
+ */
 export async function detectFaces(
   ctx: OffscreenCanvasRenderingContext2D,
   width: number,
   height: number,
 ): Promise<BoundingBox[]> {
-  try {
-    const session = await getYuNetSession();
-    const { tensor, scaleX, scaleY } = prepareYuNetInput(ctx, width, height);
-    const inputName = session.inputNames[0];
-    const results = await session.run({ [inputName]: tensor });
-    const boxes = parseYuNetDetections(results, scaleX, scaleY, 0.45);
-    if (boxes.length > 0) {
-      console.log(`[PRY Offscreen] YuNet detected ${boxes.length} face(s)`);
-      return boxes;
-    }
-  } catch (err) {
-    console.warn("[PRY Offscreen] YuNet face detection error, falling back:", err);
+  const session = await getYuNetSession();
+  const { tensor, scaleX, scaleY } = prepareYuNetInput(ctx, width, height);
+  const inputName = session.inputNames[0];
+  const results = await runSession(session, { [inputName]: tensor });
+  const boxes = parseYuNetDetections(results, scaleX, scaleY, 0.45).map((b) => ({ ...b, source: "yunet" }));
+  if (boxes.length > 0) {
+    console.log(`[PRY Offscreen] YuNet detected ${boxes.length} face(s)`);
+    return boxes;
   }
 
   // Native Chrome FaceDetector fallback
@@ -244,6 +246,7 @@ export async function detectFaces(
           confidence: 0.95,
           kind: "face",
           label: "Face detected",
+          source: "facedetector",
         }));
       }
     } catch {}
@@ -251,7 +254,7 @@ export async function detectFaces(
 
   // Skin color heuristic fallback
   const imgData = ctx.getImageData(0, 0, width, height);
-  const heuristicFaces = detectSkinColorFaces(imgData, width, height);
+  const heuristicFaces = detectSkinColorFaces(imgData, width, height).map((b) => ({ ...b, source: "heuristic" }));
   console.log(`[PRY Offscreen] Skin-color heuristic found ${heuristicFaces.length} face(s)`);
   return heuristicFaces;
 }

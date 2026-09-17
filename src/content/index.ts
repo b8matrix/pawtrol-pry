@@ -2,7 +2,7 @@
 // relays tripwire alerts raised by the MAIN-world script.
 
 import { performAction } from "./actions";
-import { findSensitiveRegions } from "./sensitive-regions";
+import { findMediaRegions, findSensitiveRegions } from "./sensitive-regions";
 import { takeSnapshot } from "./snapshot";
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -28,6 +28,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         ok: true,
         detail: "sensitive-regions",
         sensitiveRegions: findSensitiveRegions(),
+        mediaRegions: findMediaRegions(),
         dpr: window.devicePixelRatio || 1,
       });
       return false;

@@ -80,6 +80,7 @@ async function processInOffscreen(
   height: number,
   sensitiveRegions: SensitiveRegion[] = [],
   dpr = 1,
+  mediaRegions: SensitiveRegion[] = [],
 ): Promise<ProcessedScreenshot> {
   await ensureOffscreenDocument();
   const requestId = `req-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -96,7 +97,16 @@ async function processInOffscreen(
       else resolve(message.result);
     };
     chrome.runtime.onMessage.addListener(onMessage);
-    chrome.runtime.sendMessage({ type: "process-screenshot", requestId, dataUrl, width, height, sensitiveRegions, dpr });
+    chrome.runtime.sendMessage({
+      type: "process-screenshot",
+      requestId,
+      dataUrl,
+      width,
+      height,
+      sensitiveRegions,
+      mediaRegions,
+      dpr,
+    });
   });
 }
 
@@ -119,7 +129,13 @@ function queryTab(tabId: number, message: unknown, timeoutMs = CONTENT_QUERY_TIM
   });
 }
 
-async function getSensitiveRegions(tabId: number): Promise<{ regions: SensitiveRegion[]; dpr: number } | null> {
+interface RegionInfo {
+  regions: SensitiveRegion[];
+  mediaRegions: SensitiveRegion[];
+  dpr: number;
+}
+
+async function getSensitiveRegions(tabId: number): Promise<RegionInfo | null> {
   try {
     const ping = await queryTab(tabId, { kind: "ping" });
     if (!ping.ok && ping.reason === "error") {
@@ -134,7 +150,11 @@ async function getSensitiveRegions(tabId: number): Promise<{ regions: SensitiveR
     console.log(
       `[PRY] Content script found ${response.value.sensitiveRegions.length} sensitive regions, DPR=${response.value.dpr}`,
     );
-    return { regions: response.value.sensitiveRegions, dpr: response.value.dpr ?? 1 };
+    return {
+      regions: response.value.sensitiveRegions,
+      mediaRegions: response.value.mediaRegions ?? [],
+      dpr: response.value.dpr ?? 1,
+    };
   } catch (error) {
     console.warn("[PRY] getSensitiveRegions failed:", error);
     return null;
@@ -152,7 +172,14 @@ export async function captureAndProcessScreenshot(): Promise<CapturedScreenshot 
   console.log(`[PRY] Screenshot: ${shot.width}x${shot.height} @ ${dpr}x DPR, ${regions.length} sensitive regions found`);
 
   try {
-    const processed = await processInOffscreen(shot.dataUrl, shot.width, shot.height, regions, dpr);
+    const processed = await processInOffscreen(
+      shot.dataUrl,
+      shot.width,
+      shot.height,
+      regions,
+      dpr,
+      regionInfo?.mediaRegions ?? [],
+    );
     if (processed.timings) {
       console.log(
         `[PRY] Offscreen stage timings: det=${processed.timings.detection}ms, ocr=${processed.timings.ocr}ms, mask=${processed.timings.masking}ms, verify=${processed.timings.verification}ms (Backend: ${processed.backend ?? "unknown"})`,

@@ -4,7 +4,6 @@ import { fuseSignalsAndFindMissedPII } from "./fusion";
 import { recognizeText } from "./ocr";
 import { getActiveBackend } from "./ort";
 import { detectTextRegions } from "./ppocr";
-import { getSurrogateForKind } from "./surrogate";
 import type {
   BoundingBox,
   PipelineTimings,
@@ -29,6 +28,49 @@ function blobToDataUrl(blob: Blob): Promise<string> {
 }
 
 /**
+ * Short caption drawn on a mask. Deliberately contains no digits or
+ * PII-shaped text: realistic surrogate values ("9999 0123 4563") look exactly
+ * like leaks to the re-OCR verifier and would fail every screenshot.
+ */
+export function maskCaption(kind = "", label = ""): string {
+  const text = `${kind} ${label}`.toLowerCase();
+  if (text.includes("aadhaar")) return "Aadhaar hidden";
+  if (text.includes("pan")) return "PAN hidden";
+  if (/card|credit|cvv|cvc/.test(text)) return "Card details hidden";
+  if (text.includes("password") || text.includes("otp")) return "Password hidden";
+  if (/api|token|secret|key/.test(text)) return "Secret hidden";
+  if (text.includes("email")) return "Email hidden";
+  if (text.includes("phone") || text.includes("mobile")) return "Phone hidden";
+  if (text.includes("id")) return "ID hidden";
+  return "Hidden";
+}
+
+/**
+ * Opaque near-black fill: unlike a blur, nothing of the original survives, and
+ * the verifier's dark-pixel check (every channel < 30) confirms it regardless of
+ * what was underneath. A light fill over a white field changed too few pixels
+ * to pass the colour-difference check.
+ */
+function paintMask(
+  ctx: OffscreenCanvasRenderingContext2D,
+  box: { x: number; y: number; width: number; height: number },
+  caption: string,
+  borderColor: string,
+  dpr: number,
+): void {
+  ctx.fillStyle = "#111418";
+  ctx.fillRect(box.x, box.y, box.width, box.height);
+  ctx.strokeStyle = borderColor;
+  ctx.lineWidth = Math.max(1, Math.round(dpr));
+  ctx.strokeRect(box.x, box.y, box.width, box.height);
+  ctx.fillStyle = "#e2e8f0";
+  ctx.font = `600 ${Math.max(9, Math.round(Math.min(box.height * 0.45, 12 * dpr)))}px system-ui, -apple-system, sans-serif`;
+  ctx.textBaseline = "middle";
+  ctx.textAlign = "left";
+  ctx.fillText(`🔒 ${caption}`, box.x + 4 * dpr, box.y + box.height / 2, Math.max(10, box.width - 8 * dpr));
+}
+
+/**
  * Main offscreen screenshot privacy processing pipeline.
  * Runs PP-OCRv4 and YuNet in parallel, fuses signals with DOM structure,
  * applies visual masking & unconditional face blurring, verifies with re-OCR,
@@ -40,6 +82,7 @@ export async function processScreenshot(
   height: number,
   sensitiveRegions: SensitiveRegion[] = [],
   dpr = 1,
+  mediaRegions?: SensitiveRegion[],
 ): Promise<ProcessedScreenshotResult> {
   const startTime = performance.now();
   console.log(
@@ -67,16 +110,11 @@ export async function processScreenshot(
   // Stage 1: Detection (PP-OCRv4 text detection + YuNet face detection in parallel)
   // ---------------------------------------------------------------------------
   const detectStart = performance.now();
-  const [ppocrBoxes, faceBoxes] = await Promise.all([
-    detectTextRegions(mainCtx, width, height).catch((err) => {
-      console.warn("[PRY Offscreen] PP-OCRv4 text detection error:", err);
-      return [] as BoundingBox[];
-    }),
-    detectFaces(mainCtx, width, height).catch((err) => {
-      console.warn("[PRY Offscreen] Face detection error:", err);
-      return [] as BoundingBox[];
-    }),
-  ]);
+  // Sequential on purpose (the ORT backend cannot run sessions concurrently),
+  // and no catch: a detector failure rejects the whole screenshot so the
+  // worker withholds it instead of treating "no boxes" as "nothing sensitive".
+  const ppocrBoxes = await detectTextRegions(mainCtx, width, height);
+  const faceBoxes = await detectFaces(mainCtx, width, height);
   const detectDuration = performance.now() - detectStart;
 
   // ---------------------------------------------------------------------------
@@ -90,6 +128,7 @@ export async function processScreenshot(
     ppocrBoxes,
     sensitiveRegions,
     dpr,
+    mediaRegions,
   );
   const ocrDuration = performance.now() - ocrStart;
 
@@ -111,28 +150,7 @@ export async function processScreenshot(
     );
     if (!clamped) continue;
 
-    if (reg.kind === "credential_label" || reg.kind === "input_field") {
-      applyBoxBlur(mainCtx, clamped.x, clamped.y, clamped.width, clamped.height, 6 * dpr);
-    } else {
-      mainCtx.fillStyle = "#ffffff";
-      mainCtx.fillRect(clamped.x, clamped.y, clamped.width, clamped.height);
-      mainCtx.strokeStyle = "#6366f1";
-      mainCtx.lineWidth = Math.max(1, Math.round(dpr));
-      mainCtx.strokeRect(clamped.x, clamped.y, clamped.width, clamped.height);
-
-      const surrogate = getSurrogateForKind(reg.kind || reg.label);
-      mainCtx.fillStyle = "#0f172a";
-      mainCtx.font = `600 ${Math.max(9, Math.round(Math.min(clamped.height * 0.45, 12 * dpr)))}px system-ui, -apple-system, sans-serif`;
-      mainCtx.textBaseline = "middle";
-      mainCtx.textAlign = "left";
-      const textPad = 4 * dpr;
-      mainCtx.fillText(
-        `🔒 ${surrogate}`,
-        clamped.x + textPad,
-        clamped.y + clamped.height / 2,
-        Math.max(10, clamped.width - textPad * 2),
-      );
-    }
+    paintMask(mainCtx, clamped, maskCaption(reg.kind, reg.label), "#6366f1", dpr);
 
     allRedactedBoxes.push({
       x: clamped.x,
@@ -147,24 +165,14 @@ export async function processScreenshot(
       box: { x: reg.x, y: reg.y, width: reg.width, height: reg.height },
       confidence: 0.95,
       label: reg.label,
+      source: "dom",
     });
   }
 
   // 3b. Mask DOM-missed PII (Canvas, PNG, Image text identified by OCR & checksums)
   for (const match of missedPII) {
     const b = match.box;
-    mainCtx.fillStyle = "#ffffff";
-    mainCtx.fillRect(b.x, b.y, b.width, b.height);
-    mainCtx.strokeStyle = "#ef4444";
-    mainCtx.lineWidth = Math.max(1, Math.round(dpr));
-    mainCtx.strokeRect(b.x, b.y, b.width, b.height);
-
-    const surrogate = getSurrogateForKind(match.kind || match.label);
-    mainCtx.fillStyle = "#0f172a";
-    mainCtx.font = `600 ${Math.max(9, Math.round(Math.min(b.height * 0.45, 12 * dpr)))}px system-ui, -apple-system, sans-serif`;
-    mainCtx.textBaseline = "middle";
-    mainCtx.textAlign = "left";
-    mainCtx.fillText(`🔒 ${surrogate}`, b.x + 4 * dpr, b.y + b.height / 2, Math.max(10, b.width - 8 * dpr));
+    paintMask(mainCtx, b, maskCaption(match.kind, match.label), "#ef4444", dpr);
 
     allRedactedBoxes.push({
       x: b.x,
@@ -177,8 +185,9 @@ export async function processScreenshot(
     visualDetections.push({
       kind: match.kind,
       box: { x: b.x / dpr, y: b.y / dpr, width: b.width / dpr, height: b.height / dpr },
-      confidence: 0.95,
+      confidence: match.reason === "pii" ? 0.95 : 0.6,
       label: match.label,
+      source: "ppocr+ocr",
     });
   }
 
@@ -211,6 +220,7 @@ export async function processScreenshot(
       box: { x: f.x / width, y: f.y / height, width: f.width / width, height: f.height / height },
       confidence: f.confidence ?? 0.95,
       label: "Face detected",
+      source: f.source,
     });
   }
   const maskDuration = performance.now() - maskStart;

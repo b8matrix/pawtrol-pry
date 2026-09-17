@@ -1,0 +1,7 @@
+# Binary assets: never apply line-ending conversion.
+*.onnx binary
+*.wasm binary
+*.gz binary
+*.jpg binary
+*.png binary
+*.pdf binary
