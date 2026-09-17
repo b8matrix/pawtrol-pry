@@ -1,0 +1,556 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <script src="theme-boot.js"></script>
+    <title>Pawtrol Settings</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+    <style>
+      body.page {
+        min-height: 100vh;
+        padding-bottom: 88px;
+      }
+
+      .page-head {
+        position: sticky;
+        top: 0;
+        z-index: 10;
+        background: var(--bg);
+        border-bottom: 1px solid var(--line);
+      }
+      .page-head-inner,
+      .sheet-body,
+      .save-inner {
+        max-width: 680px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+      .page-head-inner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 56px;
+      }
+      .page-head .brand-name small {
+        margin-left: 8px;
+        font-weight: 500;
+        letter-spacing: 0.04em;
+        color: var(--mute);
+      }
+
+      .intro {
+        position: relative;
+        margin: 32px 0 8px;
+        padding: 22px 20px;
+        border: 1px solid var(--line-strong);
+      }
+      .intro h1 {
+        font-family: var(--font-display);
+        font-size: 30px;
+        font-weight: 700;
+        line-height: 1.05;
+        color: var(--ink);
+      }
+      .intro p {
+        margin-top: 6px;
+        max-width: 56ch;
+        color: var(--mute);
+      }
+
+      /* Each section is a ledger row: label column + content column. */
+      .section {
+        display: grid;
+        grid-template-columns: 170px 1fr;
+        gap: 8px 24px;
+        padding: 22px 0;
+        border-bottom: 1px solid var(--line);
+      }
+      .section:last-of-type {
+        border-bottom: 0;
+      }
+      .section-head .section-title {
+        font-family: var(--font-display);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--ink);
+      }
+      .section-subtitle {
+        margin-top: 4px;
+        font-size: 12px;
+        color: var(--mute);
+      }
+      .section-body {
+        min-width: 0;
+      }
+      @media (max-width: 560px) {
+        .section {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .active-planner {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 10px;
+        padding: 12px 14px;
+        background: var(--accent-tint);
+        border: 1px solid var(--accent-line);
+      }
+      .active-planner .label {
+        color: var(--accent-strong);
+      }
+      .active-planner .model {
+        margin-top: 2px;
+        font-family: var(--font-mono);
+        font-size: 13px;
+        color: var(--ink);
+        overflow-wrap: anywhere;
+      }
+      .active-badge {
+        flex-shrink: 0;
+        padding: 3px 8px;
+        font-family: var(--font-display);
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        color: var(--on-accent);
+        background: var(--accent);
+        border-radius: 2px;
+      }
+
+      .provider-list {
+        border-top: 1px solid var(--line-strong);
+      }
+      .provider-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 11px 12px;
+        background: var(--surface);
+        border: 1px solid var(--line-strong);
+        border-top: 0;
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .provider-item:hover {
+        background: var(--accent-tint);
+      }
+      .provider-item.active {
+        background: var(--accent-tint);
+      }
+      .provider-radio {
+        display: grid;
+        place-items: center;
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
+        border: 1px solid var(--line-strong);
+        border-radius: 50%;
+        background: var(--bg);
+      }
+      .provider-item.active .provider-radio {
+        border-color: var(--accent);
+      }
+      .provider-item.active .provider-radio::after {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--accent);
+      }
+      .provider-info {
+        flex: 1;
+        min-width: 0;
+      }
+      .provider-name {
+        font-weight: 600;
+        color: var(--ink);
+      }
+      .provider-model {
+        font-family: var(--font-mono);
+        font-size: 11px;
+        color: var(--mute);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .provider-badge {
+        flex-shrink: 0;
+        font-family: var(--font-display);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+      }
+      .provider-badge.enabled {
+        color: var(--ok);
+      }
+      .provider-badge.disabled {
+        color: var(--mute);
+      }
+
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 10px;
+      }
+
+      .field-group + .field-group {
+        margin-top: 12px;
+      }
+      .field-label {
+        display: block;
+        margin-bottom: 5px;
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--ink);
+      }
+      .field-input {
+        width: 100%;
+        height: 36px;
+        padding: 0 11px;
+        font-family: var(--font-mono);
+        font-size: 12.5px;
+        color: var(--ink);
+        background: var(--surface);
+        border: 1px solid var(--line-strong);
+        border-radius: 3px;
+        outline: none;
+        transition: border-color 0.15s, box-shadow 0.15s;
+      }
+      .field-input.text {
+        font-family: var(--font-body);
+        font-size: 13.5px;
+      }
+      .field-input:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-tint);
+      }
+      .field-input::placeholder {
+        color: var(--mute);
+      }
+      .field-row {
+        display: flex;
+        gap: 16px;
+      }
+      .field-row .field-group {
+        flex: 1;
+        margin-top: 0;
+      }
+      .hint {
+        margin-top: 6px;
+        font-size: 12px;
+        color: var(--mute);
+      }
+      .hint a {
+        color: var(--accent);
+        text-underline-offset: 2px;
+      }
+      .hint code,
+      .status-msg code {
+        font-size: 11px;
+      }
+
+      .toggle-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        padding: 10px 0;
+        border-bottom: 1px dashed var(--line);
+      }
+      .toggle-row:first-child {
+        padding-top: 0;
+      }
+      .toggle-row:last-child {
+        border-bottom: 0;
+      }
+      .toggle-label {
+        font-weight: 500;
+        color: var(--ink);
+      }
+      .toggle-desc {
+        font-size: 12px;
+        color: var(--mute);
+      }
+      .toggle {
+        appearance: none;
+        position: relative;
+        flex-shrink: 0;
+        width: 34px;
+        height: 20px;
+        background: var(--surface-2);
+        border: 1px solid var(--line-strong);
+        border-radius: 20px;
+        cursor: pointer;
+        transition: background 0.2s var(--ease-out), border-color 0.2s;
+      }
+      .toggle::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        left: 2px;
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: var(--bg);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        transition: transform 0.25s var(--ease-out);
+      }
+      .toggle:checked {
+        background: var(--accent);
+        border-color: var(--accent);
+      }
+      .toggle:checked::after {
+        transform: translateX(14px);
+      }
+
+      .status-msg {
+        font-size: 12px;
+        color: var(--mute);
+      }
+      .status-msg:empty {
+        display: none;
+      }
+      #model-status,
+      #ollama-test-result {
+        margin-top: 8px;
+      }
+      #ollama-test-result {
+        padding: 10px 12px;
+        background: var(--surface);
+        border: 1px solid var(--line);
+      }
+      .status-msg.ok {
+        color: var(--ok);
+      }
+      .status-msg.bad {
+        color: var(--alert);
+      }
+
+      .save-bar {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        z-index: 10;
+        background: var(--bg);
+        border-top: 1px solid var(--line);
+      }
+      .save-inner {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        height: 64px;
+      }
+      #save {
+        min-height: 38px;
+        padding: 0 20px;
+      }
+    </style>
+  </head>
+  <body class="page">
+    <header class="page-head">
+      <div class="page-head-inner">
+        <div class="brand">
+          <span class="brand-tile" aria-hidden="true">P</span>
+          <span class="brand-name">Pawtrol<small>Settings</small></span>
+        </div>
+        <span style="display:flex;gap:8px;align-items:center;">
+          <button class="icon-btn theme-toggle" type="button" data-theme-toggle aria-label="Switch theme">
+          <svg class="ico ico-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.2 9.6A5.6 5.6 0 0 1 6.4 2.8a5.6 5.6 0 1 0 6.8 6.8Z" /></svg>
+          <svg class="ico ico-sun" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="2.8" /><path d="M8 1.5v1.4M8 13.1v1.4M1.5 8h1.4M13.1 8h1.4M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1" /></svg>
+        </button>
+          <button class="btn" id="close" type="button">Close</button>
+        </span>
+      </div>
+    </header>
+
+    <main class="sheet-body">
+      <div class="intro">
+        <i class="cross tl"></i><i class="cross tr"></i><i class="cross bl"></i><i class="cross br"></i>
+        <h1>Set up your agent</h1>
+        <p>Pick the model that plans each step. Whatever you choose, passwords, IDs, and personal data are redacted in this browser before anything is sent.</p>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title">You</div>
+          <div class="section-subtitle">Used only to greet you.</div>
+        </div>
+        <div class="section-body">
+          <div class="field-group">
+            <label class="field-label" for="pry-name">What should Pawtrol call you?</label>
+            <input type="text" class="field-input text" id="pry-name" maxlength="32" autocomplete="given-name" placeholder="Your first name" />
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title">Appearance</div>
+          <div class="section-subtitle">Applies to the side panel too.</div>
+        </div>
+        <div class="section-body">
+          <div class="segmented" role="radiogroup" aria-label="Theme">
+            <label><input type="radio" name="pry-theme" value="system" />System</label>
+            <label><input type="radio" name="pry-theme" value="light" />Light</label>
+            <label><input type="radio" name="pry-theme" value="dark" />Dark</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title">Provider</div>
+          <div class="section-subtitle">Who runs the model. You can also switch from the side panel.</div>
+        </div>
+        <div class="section-body">
+          <div class="active-planner">
+            <div>
+              <div class="label">Active model</div>
+              <div class="model" id="active-model-display">—</div>
+            </div>
+            <div class="active-badge" id="active-provider-badge">—</div>
+          </div>
+          <div class="provider-list" id="provider-list"></div>
+          <div class="toolbar">
+            <button class="btn" id="refresh-models" type="button">Fetch models</button>
+            <button class="btn" id="test-ollama" type="button" style="display: none;">Test Ollama</button>
+          </div>
+          <div id="model-status" class="status-msg"></div>
+          <div id="ollama-test-result" class="status-msg" style="display: none;"></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title">API key</div>
+          <div class="section-subtitle">Stored only in this browser.</div>
+        </div>
+        <div class="section-body">
+          <div class="field-group">
+            <label class="field-label" for="apiKey">Key for the selected provider</label>
+            <input type="password" class="field-input" id="apiKey" placeholder="sk-..." autocomplete="off" />
+          </div>
+        </div>
+      </div>
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title">Model</div>
+        </div>
+        <div class="section-body">
+          <div class="field-group">
+            <label class="field-label" for="model">Model id</label>
+            <input type="text" class="field-input" id="model" list="model-list" placeholder="claude-opus-5" spellcheck="false" />
+            <datalist id="model-list"></datalist>
+          </div>
+          <div class="hint" id="provider-hint"></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title">Agent</div>
+        </div>
+        <div class="section-body">
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">Ask before risky actions</div>
+              <div class="toggle-desc">Pause for your approval before submitting, buying, or deleting.</div>
+            </div>
+            <input type="checkbox" class="toggle" id="confirmRisky" checked aria-label="Ask before risky actions" />
+          </div>
+          <div class="field-group" style="margin-top: 12px;">
+            <label class="field-label" for="maxSteps">Max steps per task</label>
+            <input type="number" class="field-input" id="maxSteps" value="40" min="5" max="200" style="max-width: 120px;" />
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title">Privacy</div>
+          <div class="section-subtitle">Runs on your device.</div>
+        </div>
+        <div class="section-body">
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">Blur faces</div>
+              <div class="toggle-desc">Detect and blur faces in screenshots.</div>
+            </div>
+            <input type="checkbox" class="toggle" id="blurFaces" checked aria-label="Blur faces" />
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">Mask credentials</div>
+              <div class="toggle-desc">Black out password and card fields.</div>
+            </div>
+            <input type="checkbox" class="toggle" id="maskCredentials" checked aria-label="Mask credentials" />
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">Tokenize personal data</div>
+              <div class="toggle-desc">Replace sensitive values with opaque tokens.</div>
+            </div>
+            <input type="checkbox" class="toggle" id="tokenizePII" checked aria-label="Tokenize personal data" />
+          </div>
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">Show redaction labels</div>
+              <div class="toggle-desc">Label redacted regions (useful for demos).</div>
+            </div>
+            <input type="checkbox" class="toggle" id="showRedactionLabels" aria-label="Show redaction labels" />
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-head">
+          <div class="section-title">Vision</div>
+          <div class="section-subtitle">Optional.</div>
+        </div>
+        <div class="section-body">
+          <div class="toggle-row">
+            <div>
+              <div class="toggle-label">Let the model see the page</div>
+              <div class="toggle-desc">After each change, a vision model describes the <strong>redacted</strong> screenshot. Only redacted pixels leave the browser, and they count toward the egress badge.</div>
+            </div>
+            <input type="checkbox" class="toggle" id="visionEnabled" aria-label="Let the model see the page" />
+          </div>
+          <div class="field-group" style="margin-top: 12px;">
+            <label class="field-label" for="visionModel">Vision model (uses the active provider's key)</label>
+            <input type="text" class="field-input" id="visionModel" list="vision-model-list" placeholder="Leave blank for the provider default" spellcheck="false" />
+            <datalist id="vision-model-list">
+              <option value="gpt-4o-mini"></option>
+              <option value="llama-3.2-11b-vision-preview"></option>
+              <option value="meta/llama-3.2-11b-vision-instruct"></option>
+              <option value="llama3.2-vision"></option>
+              <option value="claude-sonnet-4-5"></option>
+            </datalist>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <div class="save-bar">
+      <div class="save-inner">
+        <button class="btn btn-primary" id="save" type="button">Save settings</button>
+        <span class="status-msg" id="saved"></span>
+      </div>
+    </div>
+
+    <script type="module" src="theme.js"></script>
+    <script type="module" src="options-profile.js"></script>
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

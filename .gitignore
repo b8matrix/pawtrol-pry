@@ -1,0 +1,28 @@
+# Claude & AI instructions
+CLAUDE.md
+claude.md
+*.claude.md
+
+# History & backups
+.codex-history/
+.ui-backup/
+
+# Environment and sensitive keys
+.env
+.env.*
+*.env
+*.key
+*.pem
+*.secret
+*.token
+
+# Logs & temp files
+*.log
+*.tmp
+temp/
+tmp/
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
