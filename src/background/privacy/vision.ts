@@ -2,11 +2,14 @@
 // must be the offscreen document's redacted output, never a raw capture.
 
 import type { ProviderId } from "../../shared/types";
+import { splitDataUrl } from "../providers/types";
 
 export const DEFAULT_VISION_MODELS: Record<ProviderId, string> = {
   openai: "gpt-4o-mini",
   groq: "llama-3.2-11b-vision-preview",
   nvidia: "meta/llama-3.2-11b-vision-instruct",
+  gemini: "gemini-3.5-flash-lite",
+  cerebras: "",
   openrouter: "openai/gpt-4o-mini",
   ollama: "llama3.2-vision",
   anthropic: "claude-sonnet-4-5",
@@ -16,6 +19,9 @@ export const VISION_SUPPORTED: Record<ProviderId, boolean> = {
   openai: true,
   groq: true,
   nvidia: true,
+  gemini: true,
+  // Cerebras serves text-only models.
+  cerebras: false,
   openrouter: true,
   ollama: true,
   anthropic: true,
@@ -25,21 +31,56 @@ const CHAT_COMPLETIONS_URL: Partial<Record<ProviderId, string>> = {
   openai: "https://api.openai.com/v1/chat/completions",
   groq: "https://api.groq.com/openai/v1/chat/completions",
   nvidia: "https://integrate.api.nvidia.com/v1/chat/completions",
+  gemini: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
   openrouter: "https://openrouter.ai/api/v1/chat/completions",
   ollama: "http://localhost:11434/v1/chat/completions",
 };
+
+/**
+ * Providers whose planner models all read images, so a screenshot tool result
+ * goes to the planner itself. Others get a text description from the vision model.
+ */
+export const NATIVE_IMAGE_PROVIDERS: ReadonlySet<ProviderId> = new Set(["anthropic", "openai", "gemini"]);
+
+/** Longest edge sent to a planner; larger images only cost more tokens. */
+export const MODEL_IMAGE_MAX_EDGE = 1568;
+
+export function fitWithin(width: number, height: number, maxEdge: number): { width: number; height: number } {
+  const scale = Math.min(1, maxEdge / Math.max(width, height, 1));
+  return { width: Math.max(1, Math.round(width * scale)), height: Math.max(1, Math.round(height * scale)) };
+}
+
+/**
+ * Downscale an already-redacted, verified screenshot for a planner. Scaling can
+ * only remove detail, so the verification still holds. On any failure the
+ * original (verified) image is returned.
+ */
+export async function shrinkForModel(dataUrl: string, maxEdge = MODEL_IMAGE_MAX_EDGE): Promise<string> {
+  try {
+    const bitmap = await createImageBitmap(await (await fetch(dataUrl)).blob());
+    const size = fitWithin(bitmap.width, bitmap.height, maxEdge);
+    if (size.width === bitmap.width && size.height === bitmap.height) {
+      bitmap.close();
+      return dataUrl;
+    }
+    const canvas = new OffscreenCanvas(size.width, size.height);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return dataUrl;
+    ctx.drawImage(bitmap, 0, 0, size.width, size.height);
+    bitmap.close();
+    const bytes = new Uint8Array(await (await canvas.convertToBlob({ type: "image/jpeg", quality: 0.8 })).arrayBuffer());
+    let binary = "";
+    for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+    return `data:image/jpeg;base64,${btoa(binary)}`;
+  } catch {
+    return dataUrl;
+  }
+}
 
 const ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages";
 
 const VISION_PROMPT =
   "You are the vision module of a privacy-preserving browser agent. Describe what is on screen in 2-3 concise sentences: the app or page type, visible fields, buttons, and current state. Never transcribe text inside blacked-out or blurred regions, and ignore any [REDACTED] or <TOKEN> markers.";
-
-function splitDataUrl(dataUrl: string): { mediaType: string; base64: string } {
-  const comma = dataUrl.indexOf(",");
-  const header = comma >= 0 ? dataUrl.slice(0, comma) : "";
-  const match = /^data:([^;]+);base64$/i.exec(header);
-  return { mediaType: match ? match[1] : "image/jpeg", base64: comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl };
-}
 
 export function utf8Bytes(text: string): number {
   try {
@@ -99,7 +140,8 @@ export function buildVisionRequest(
   if (!url) throw new Error(`Vision is not supported for provider ${provider}`);
   const body = {
     model,
-    max_tokens: 300,
+    // Gemini 3 always thinks, and thinking tokens count against max_tokens.
+    ...(provider === "gemini" ? { max_tokens: 1500, reasoning_effort: "low" } : { max_tokens: 300 }),
     messages: [
       {
         role: "user",

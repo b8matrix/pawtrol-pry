@@ -25,6 +25,12 @@
     "default_path": "sidepanel.html"
   },
   "options_page": "options.html",
+  "commands": {
+    "open-launcher": {
+      "suggested_key": { "default": "Alt+Shift+P" },
+      "description": "Open the Pawtrol launcher on this page"
+    }
+  },
   "action": {
     "default_title": "Open Pawtrol",
     "default_icon": {

@@ -40,6 +40,16 @@ const PROVIDERS = {
     label: "NVIDIA NIM",
     models: ["nvidia/nemotron-3.5-lightning-30b-a3b", "nvidia/nemotron-3-super-120b-a12b", "nvidia/nemotron-3-nano-30b-a3b", "deepseek-ai/deepseek-v4-pro-0813", "qwen/qwq-32b", "meta/llama-3.1-8b-instruct"],
   },
+  gemini: {
+    chip: "Gemini",
+    label: "Google Gemini",
+    models: ["gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-3.1-flash-lite", "gemini-3.1-pro-preview"],
+  },
+  cerebras: {
+    chip: "Cerebras",
+    label: "Cerebras",
+    models: ["gpt-oss-120b", "qwen-3.8-27b"],
+  },
 };
 const DEFAULT_PROVIDER = "ollama";
 
@@ -223,6 +233,37 @@ function initToolsMenu() {
   });
   document.addEventListener("click", (e) => {
     if (!menu.hidden && !e.target.closest(".menu-wrap")) setOpen(false);
+  });
+}
+
+// ─── Page launcher toggle ──────────────────────────────────────────────
+// The floating button on web pages (src/content/launcher.ts). Off hides it
+// everywhere; Alt+Shift+P still opens it on demand.
+const LAUNCHER_KEY = "pry-launcher";
+
+async function initLauncherToggle() {
+  const btn = $("btn-launcher");
+  const hint = $("launcher-hint");
+  if (!btn || !hint) return;
+  let prefs = { enabled: true, hiddenHosts: [], ...((await storageGet(LAUNCHER_KEY)) ?? {}) };
+  const render = () => {
+    btn.setAttribute("aria-checked", String(prefs.enabled));
+    const hidden = prefs.hiddenHosts.length;
+    hint.textContent = prefs.enabled
+      ? `On · Alt+Shift+P on any page${hidden ? ` · hidden on ${hidden} site${hidden === 1 ? "" : "s"}` : ""}`
+      : "Off · Alt+Shift+P still opens it";
+  };
+  render();
+  btn.addEventListener("click", async () => {
+    // Turning it back on also clears the per-site hides.
+    prefs = prefs.enabled ? { ...prefs, enabled: false } : { enabled: true, hiddenHosts: [] };
+    render();
+    await storageSet({ [LAUNCHER_KEY]: prefs });
+  });
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== "local" || !changes[LAUNCHER_KEY]) return;
+    prefs = { enabled: true, hiddenHosts: [], ...(changes[LAUNCHER_KEY].newValue ?? {}) };
+    render();
   });
 }
 
@@ -759,6 +800,7 @@ function initAuditViewer() {
 async function init() {
   initAuditViewer();
   initToolsMenu();
+  initLauncherToggle();
   shuffleSuggestions();
   initGreeting(await storageGet(PROFILE_KEY));
   renderExposure();

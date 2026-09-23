@@ -1,8 +1,16 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { ConversationMessage, Planner, StopReason, ToolDefinition } from "./types";
-import { ProviderError, parseToolInput } from "./types";
+import { ProviderError, parseToolInput, splitDataUrl } from "./types";
 
-function toAnthropicMessages(messages: ConversationMessage[]): Anthropic.MessageParam[] {
+function toImageBlock(dataUrl: string): Anthropic.ImageBlockParam {
+  const { mediaType, base64 } = splitDataUrl(dataUrl);
+  return {
+    type: "image",
+    source: { type: "base64", media_type: mediaType as Anthropic.Base64ImageSource["media_type"], data: base64 },
+  };
+}
+
+export function toAnthropicMessages(messages: ConversationMessage[]): Anthropic.MessageParam[] {
   return messages.map((message): Anthropic.MessageParam => {
     if (message.role === "user") return { role: "user", content: message.content };
     if (message.role === "assistant") {
@@ -19,7 +27,7 @@ function toAnthropicMessages(messages: ConversationMessage[]): Anthropic.Message
       content: message.results.map((result) => ({
         type: "tool_result" as const,
         tool_use_id: result.id,
-        content: result.content,
+        content: result.image ? [{ type: "text" as const, text: result.content }, toImageBlock(result.image)] : result.content,
         ...(result.isError ? { is_error: true } : {}),
       })),
     };

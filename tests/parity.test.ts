@@ -263,7 +263,13 @@ describe("settings and learning", () => {
       { vision: { enabled: false }, server: { enabled: true }, privacy: { blurFaces: false } },
       { models: { openai: "gpt-x" }, model: "ignored" },
     ];
-    for (const input of inputs) expect(normalizeSettings(input)).toEqual(legacy.normalizeSettings(input));
+    // Gemini and Cerebras postdate legacy; tests/fixes.test.ts covers their defaults.
+    const withoutNewProviders = (settings: any) => {
+      const { gemini: _k1, cerebras: _k2, ...apiKeys } = settings.apiKeys;
+      const { gemini: _m1, cerebras: _m2, ...models } = settings.models;
+      return { ...settings, apiKeys, models };
+    };
+    for (const input of inputs) expect(withoutNewProviders(normalizeSettings(input))).toEqual(legacy.normalizeSettings(input));
   });
 
   test("classifiers match legacy", () => {

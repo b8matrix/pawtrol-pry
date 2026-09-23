@@ -14,7 +14,13 @@ import { logAction, logDetections, logRedaction, logSnapshot, logTokenization, l
 import { labelDetections, sanitizeSnapshot, type DetectionRecord, type LearningFilters } from "../privacy/sanitize";
 import type { CapturedScreenshot, RedactionVerification, VisualDetection } from "../privacy/screenshot";
 import { stripDigitsGluedToTokens, vault, type TokenSummary } from "../privacy/vault";
-import { DEFAULT_VISION_MODELS, VISION_SUPPORTED, describeRedactedScreenshot } from "../privacy/vision";
+import {
+  DEFAULT_VISION_MODELS,
+  NATIVE_IMAGE_PROVIDERS,
+  VISION_SUPPORTED,
+  describeRedactedScreenshot,
+  shrinkForModel,
+} from "../privacy/vision";
 import { createPlanner } from "../providers";
 import type { ConversationMessage, PlannerResponse, ToolResultContent } from "../providers/types";
 import { RateLimitError } from "../providers/types";
@@ -90,6 +96,12 @@ const NARRATION_FLUSH_CHARS = 200;
 /** Tools whose text result is page content and must pass the PII pipeline. */
 const PAGE_TEXT_TOOLS = new Set(["find_text", "extract_text"]);
 
+const INTERNAL_PAGE_NOTE =
+  "This tab shows a browser-internal page (such as the new tab page), which cannot be read, clicked or captured. Take control of the tab with navigate: go straight to the site the task needs, or to https://www.google.com/search?q=... for a web search.";
+
+/** Rough planner-token cost of one downscaled screenshot, for the estimate shown when a provider reports no usage. */
+const IMAGE_TOKEN_ESTIMATE = 1600;
+
 const SCREENSHOT_WITHHELD = "[Screenshot withheld: on-device redaction could not be verified, so no image was sent]";
 
 /**
@@ -137,7 +149,7 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
   const error = (text: string) => emit({ kind: "entry", entry: { id: nextEntryId(), role: "error", text } });
 
   const isLocal = settings.provider === "ollama";
-  const smallContext = settings.provider === "groq" || settings.provider === "nvidia";
+  const smallContext = settings.provider === "groq" || settings.provider === "nvidia" || settings.provider === "cerebras";
   const systemPrompt = isLocal ? COMPACT_SYSTEM_PROMPT : SYSTEM_PROMPT;
   const elementLimit = isLocal ? 25 : smallContext ? 40 : 50;
   const planner = createPlanner(settings);
@@ -146,6 +158,12 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
   const apiKey = settings.apiKeys[settings.provider] ?? "";
   const visionEnabled = settings.vision.enabled && VISION_SUPPORTED[settings.provider];
   const visionModel = (settings.vision.model || "").trim() || DEFAULT_VISION_MODELS[settings.provider];
+  // The screenshot tool: the model looks when the DOM is not enough. Planners
+  // that read images get the redacted image; the rest get the vision model's
+  // description of it.
+  const nativeImages = NATIVE_IMAGE_PROVIDERS.has(settings.provider);
+  const screenshotAvailable = Boolean(captureScreenshot) && (nativeImages || VISION_SUPPORTED[settings.provider]);
+  const tools = screenshotAvailable ? TOOLS : TOOLS.filter((tool) => tool.name !== "screenshot");
 
   const actions: ActionRecord[] = [];
   const piiDetections: PIIDetectionRecord[] = [];
@@ -196,10 +214,9 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
 
   let controller = new TabController(tabId);
   const tab = await chrome.tabs.get(tabId);
-  if (isRestrictedUrl(tab.url)) {
-    error(`I can't work on ${tab.url} — Chrome blocks extensions on its own pages. Open a normal website and try again.`);
-    return;
-  }
+  // Chrome lets no extension read or click its own pages (new tab, settings,
+  // Web Store), but the tab itself can still be navigated. Start there.
+  const startsInternal = isRestrictedUrl(tab.url);
 
   let snapshot: PageSnapshot | undefined | null;
 
@@ -225,11 +242,89 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
     }
   }
 
+  /**
+   * The screenshot tool. The capture goes through the same on-device redaction
+   * and fail-closed verification as every other screenshot.
+   */
+  async function takeScreenshot(
+    question: string,
+  ): Promise<{ ok: boolean; content: string; summary: string; image?: string; latencyMs: number }> {
+    const t0 = performance.now();
+    const fail = (content: string, summary = content) => ({ ok: false, content, summary, latencyMs: performance.now() - t0 });
+    if (!captureScreenshot) return fail("Screenshots are not available in this session.");
+    // Chrome can only capture the visible tab; never capture a tab the agent is not on.
+    const [active] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (isRestrictedUrl(active?.url)) return fail(INTERNAL_PAGE_NOTE, "Browser page — cannot be captured.");
+    if (active?.id !== controller.tabId) {
+      return fail(
+        "The agent's tab is not the visible tab, so it cannot be captured. Use switch_tab to bring it to the front, then retry.",
+        "Tab not visible — no screenshot taken.",
+      );
+    }
+    let capture: CapturedScreenshot | null = null;
+    try {
+      capture = await captureScreenshot();
+    } catch {}
+    if (!capture) {
+      return fail(
+        "Screenshot failed: on-device redaction did not complete, so nothing was sent. Continue with the element list and page text.",
+        "Screenshot not taken — on-device redaction failed.",
+      );
+    }
+    recordCapture(capture, lastDomDetections);
+    const { processed } = capture;
+    if (!isSafeToSend(processed)) return fail(SCREENSHOT_WITHHELD, "Screenshot withheld — redaction not verified.");
+    const masked = `${processed.redactedCount} sensitive region(s) masked on device`;
+    if (signal.aborted) return fail("Stopped.");
+
+    if (nativeImages) {
+      const image = await shrinkForModel(processed.redactedDataUrl);
+      return {
+        ok: true,
+        content: `Screenshot of the visible viewport attached (${masked}). Dark bars are redactions; do not try to read them.`,
+        summary: `Looked at the screen (${masked}).`,
+        image,
+        latencyMs: performance.now() - t0,
+      };
+    }
+
+    const pageContext = [question ? `The agent wants to know: ${question}` : "", snapshot ? formatSnapshot(snapshot) : ""]
+      .filter(Boolean)
+      .join("\n\n");
+    try {
+      const observation = await describeRedactedScreenshot(
+        settings.provider,
+        visionModel,
+        apiKey,
+        processed.redactedDataUrl,
+        pageContext,
+        signal,
+      );
+      if (countsEgress) {
+        egressBytes += observation.bytes;
+        estimatedTokens += IMAGE_TOKEN_ESTIMATE;
+        emit({ kind: "egress", bytes: egressBytes });
+      }
+      return {
+        ok: true,
+        content: `Screenshot (${masked}), described by ${observation.model}: ${observation.text}`,
+        summary: `Looked at the screen (${masked}).`,
+        latencyMs: performance.now() - t0,
+      };
+    } catch (err) {
+      const reason = err instanceof Error ? err.message.slice(0, 160) : "vision model unavailable";
+      return fail(
+        `The screenshot was redacted, but the vision model (${visionModel}) could not describe it: ${reason}. Set a vision model in the options, or continue with the element list.`,
+        "Screenshot taken, but the vision model failed.",
+      );
+    }
+  }
+
   const domain = extractDomain(tab.url ?? "");
   system(`Using ${planner.label}. Privacy pipeline: active.`);
   await controller.waitForLoad();
 
-  snapshot = await controller.snapshot();
+  snapshot = startsInternal ? undefined : await controller.snapshot();
   let elementsAtStepStart: PageSnapshot["elements"] = [];
   const pageType = classifyPageType(tab.url ?? "", tab.title ?? "", snapshot?.text ?? "");
   const [rules, lessons, trajectories] = await Promise.all([
@@ -403,6 +498,7 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
         (trajectoriesBlock ? `${trajectoriesBlock}\n\n` : "") +
         taskMessage(tokenizedTask, stripUrlQuery(tab.url ?? ""), tab.title ?? "") +
         (snapshot ? `${INITIAL_PAGE}${formatSnapshot(snapshot)}` : "") +
+        (startsInternal ? `\n\n${INTERNAL_PAGE_NOTE}` : "") +
         (initialObservation ? `\n\n${initialObservation}` : ""),
     },
   ];
@@ -418,7 +514,10 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
    */
   async function observePage(resultSnapshot: PageSnapshot | undefined, paged: boolean): Promise<string> {
     const raw = resultSnapshot ?? (await controller.snapshot());
-    if (!raw) return "";
+    if (!raw) {
+      const current = await chrome.tabs.get(controller.tabId).catch(() => null);
+      return isRestrictedUrl(current?.url) ? `\n\n${INTERNAL_PAGE_NOTE}` : "";
+    }
     const navigated = snapshot && raw.url !== snapshot.url;
     const sanitized = sanitizeSnapshot(raw, filters);
     // A filtered or paged read asked for exactly these elements; keep offscreen ones.
@@ -625,9 +724,20 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
 
     if (countsEgress) {
       try {
-        const bytes = byteLength(JSON.stringify({ system: systemPrompt, messages, tools: TOOLS }));
+        const bytes = byteLength(JSON.stringify({ system: systemPrompt, messages, tools }));
         egressBytes += bytes;
-        estimatedTokens += Math.ceil(bytes / 4);
+        // An image costs roughly a fixed number of tokens, not bytes / 4.
+        let imageChars = 0;
+        let images = 0;
+        for (const message of messages) {
+          if (message.role !== "tool") continue;
+          for (const result of message.results) {
+            if (!result.image) continue;
+            imageChars += result.image.length;
+            images++;
+          }
+        }
+        estimatedTokens += Math.ceil((bytes - imageChars) / 4) + images * IMAGE_TOKEN_ESTIMATE;
         emit({ kind: "egress", bytes: egressBytes });
       } catch {}
     }
@@ -638,7 +748,7 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
         planner.run({
           system: systemPrompt,
           messages,
-          tools: TOOLS,
+          tools,
           signal: anySignal(signal, attempt.signal),
           onText,
         }),
@@ -750,7 +860,7 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
     // after the last call that can change it.
     let lastPageChange = -1;
     calls.forEach((call, i) => {
-      if (!MEMORY_TOOLS.has(call.name) && !READ_ONLY_TOOLS.has(call.name)) lastPageChange = i;
+      if (!MEMORY_TOOLS.has(call.name) && !READ_ONLY_TOOLS.has(call.name) && call.name !== "screenshot") lastPageChange = i;
     });
 
     for (const [index, call] of calls.entries()) {
@@ -766,6 +876,15 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
         const outcome = memory.apply(call.name, call.input);
         emit({ kind: "patch", id: stepId, text: outcome.detail, pending: false });
         results.push({ id: call.id, content: outcome.detail, isError: !outcome.ok });
+        continue;
+      }
+
+      if (call.name === "screenshot") {
+        loopGuard.remember(call.name, call.input, pageFingerprint(snapshot));
+        const shot = await takeScreenshot(typeof call.input.question == "string" ? call.input.question : "");
+        actions.push({ tool: call.name, success: shot.ok, latencyMs: shot.latencyMs, strategy: "llm", error: shot.ok ? undefined : shot.content });
+        emit({ kind: "patch", id: stepId, text: shot.summary, pending: false });
+        results.push({ id: call.id, content: shot.content, isError: !shot.ok, ...(shot.image ? { image: shot.image } : {}) });
         continue;
       }
 

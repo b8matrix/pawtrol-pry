@@ -81,6 +81,11 @@ export function compactHistory(messages: ConversationMessage[], dropPages = true
     }
     if (message.role !== "tool") continue;
     for (const result of message.results) {
+      // A screenshot is seen once; after that it only costs tokens.
+      if (result.image) {
+        delete result.image;
+        result.content += "\n[Earlier screenshot omitted]";
+      }
       let content = result.content.replace(MEMORY_BLOCK, "");
       const page = dropPages ? content.match(PAGE_BLOCK) : null;
       if (page) content = content.slice(0, page.index) + summarizePageBlock(page[0]);

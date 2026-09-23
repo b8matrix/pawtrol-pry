@@ -20,6 +20,8 @@ import { reflectOnExperience } from "./learning/reflection";
 import { createEgressWatch, type TripwireAlert } from "./privacy/egress-watch";
 import { getLedgerSummary, logRedaction } from "./privacy/ledger";
 import { captureAndProcessScreenshot } from "./privacy/screenshot";
+import { isRestrictedUrl } from "./browser/executor";
+import { launcherMessageFor, type LauncherMessage } from "./launcher";
 import { createPlanner } from "./providers";
 import { loadSettings } from "./settings";
 
@@ -43,6 +45,11 @@ const pendingConfirms = new Map<string, (approved: boolean) => void>();
 let auditRecords: (AuditRecord & { timestamp: number })[] = [];
 let runStartedAt = 0;
 let lastRunStats: unknown = null;
+/** The tab whose in-page launcher mirrors the current run, and what it last showed. */
+let launcherTabId: number | null = null;
+/** The run was started from the page launcher, which then follows it across navigations. */
+let launcherOwnsRun = false;
+let launcherState: { update?: LauncherMessage; confirm?: LauncherMessage; collapsed?: boolean } = {};
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
 
@@ -65,7 +72,32 @@ function emit(event: AgentEvent): void {
     pendingExperience = (event as { experience: Experience }).experience;
   }
   chrome.runtime.sendMessage(event).catch(() => {});
+  notifyLauncher(launcherMessageFor(event, transcript));
 }
+
+function notifyLauncher(message: LauncherMessage | null): void {
+  if (!message || launcherTabId === null) return;
+  // A stopped run can still log a step while it unwinds; the launcher already shows it stopped.
+  if (message.kind === "launcher-update" && message.running && !running) return;
+  if (message.kind === "launcher-update") launcherState.update = message;
+  else if (message.kind === "launcher-confirm") launcherState.confirm = message;
+  else if (launcherState.confirm?.kind === "launcher-confirm" && launcherState.confirm.id === message.id) {
+    launcherState.confirm = undefined;
+  }
+  chrome.tabs.sendMessage(launcherTabId, message).catch(() => {});
+}
+
+// Alt+Shift+P: open the page launcher, or the side panel where Chrome allows no
+// content script (its own pages). No await before sidePanel.open: it needs the gesture.
+chrome.commands?.onCommand.addListener((command, tab) => {
+  if (command !== "open-launcher" || !tab?.id) return;
+  const tabId = tab.id;
+  if (isRestrictedUrl(tab.url)) {
+    chrome.sidePanel.open({ tabId }).catch(() => {});
+    return;
+  }
+  chrome.tabs.sendMessage(tabId, { kind: "launcher-open" }).catch(() => chrome.sidePanel.open({ tabId }).catch(() => {}));
+});
 
 function onTripwireAlert(alert: TripwireAlert): void {
   tripwireAlerts.unshift(alert);
@@ -270,6 +302,8 @@ async function startRun(task: string, tabId: number): Promise<void> {
   runStartedAt = Date.now();
   lastRunStats = null;
   const startedAt = runStartedAt;
+  launcherTabId = tabId;
+  launcherState = {};
   auditRecords = [];
   emit({ kind: "status", running: true });
   emit({ kind: "entry", entry: { id: `u-${Date.now()}`, role: "user", text: task } });
@@ -335,7 +369,7 @@ async function startRun(task: string, tabId: number): Promise<void> {
   }
 }
 
-chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "TRIPWIRE_ALERT") {
     const detail = message.detail;
     if (detail) {
@@ -352,17 +386,57 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
 
   switch (message.kind) {
-    case "run":
-      startRun(message.task, message.tabId);
+    case "run": {
+      // The side panel names the tab; the page launcher runs on its own tab.
+      const tabId = message.tabId ?? sender.tab?.id;
+      if (running || typeof tabId != "number") {
+        sendResponse({ ok: false, reason: running ? "A task is already running." : "No tab to run on." });
+        return false;
+      }
+      launcherOwnsRun = message.tabId === undefined;
+      startRun(String(message.task ?? ""), tabId);
+      sendResponse({ ok: true });
+      return false;
+    }
+
+    case "launcher-collapsed":
+      if (sender.tab?.id === launcherTabId) launcherState.collapsed = Boolean(message.collapsed);
       sendResponse({ ok: true });
       return false;
 
+    case "launcher-state":
+      // A launcher asking after a page load: the run may have navigated its tab.
+      sendResponse(
+        sender.tab?.id === launcherTabId ? { running, owned: launcherOwnsRun, ...launcherState } : { running: false },
+      );
+      return false;
+
+    case "open-panel": {
+      const tabId = sender.tab?.id;
+      if (typeof tabId != "number") {
+        sendResponse({ ok: false });
+        return false;
+      }
+      chrome.sidePanel
+        .open({ tabId })
+        .then(() => sendResponse({ ok: true }))
+        .catch(() => sendResponse({ ok: false }));
+      return true;
+    }
+
     case "stop":
       runController?.abort();
+      // Also cancel a page load the run started; aborting the loop does not.
+      if (launcherTabId !== null) {
+        chrome.scripting
+          .executeScript({ target: { tabId: launcherTabId }, func: () => window.stop() })
+          .catch(() => {});
+      }
       declineAllConfirms();
       running = false;
-      emit({ kind: "status", running: false });
+      // Entry first, so the launcher's outcome for this status is "Stopped.".
       emit({ kind: "entry", entry: { id: `s-${Date.now()}`, role: "system", text: "Stopped." } });
+      emit({ kind: "status", running: false });
       sendResponse({ ok: true });
       return false;
 
@@ -381,6 +455,9 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       const resolve = pendingConfirms.get(message.id);
       pendingConfirms.delete(message.id);
       resolve?.(message.approved);
+      // Answered from the panel or the launcher: clear the prompt in both.
+      notifyLauncher({ kind: "launcher-confirm-done", id: String(message.id) });
+      chrome.runtime.sendMessage({ kind: "confirm-resolved", id: message.id }).catch(() => {});
       sendResponse({ ok: true });
       return false;
     }

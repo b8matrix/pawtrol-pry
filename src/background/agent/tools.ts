@@ -158,6 +158,18 @@ export const TOOLS: ToolDefinition[] = [
     },
   },
   {
+    name: "screenshot",
+    description:
+      "Look at the visible part of the page as an image. Use it when the element list and page text are not enough: canvas, charts, maps, images, visual layout, colours, or a control you cannot find in the element list. Sensitive values are masked on the device first and show as dark bars; do not try to read them. It does not change the page or the element ids.",
+    parameters: {
+      type: "object",
+      properties: {
+        question: { type: "string", description: "What you want to find out from the screen" },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
     name: "list_tabs",
     description: "List the open tabs in this window with their ids, titles, and URLs.",
     parameters: noParams,
@@ -224,6 +236,8 @@ export function describeToolCall(name: string, input: Record<string, unknown>): 
       return `Scroll ${input.direction}`;
     case "find_text":
       return `Look for "${input.query}"`;
+    case "screenshot":
+      return input.question ? `Look at the screen: ${String(input.question).slice(0, 80)}` : "Look at the screen";
     default:
       return reason || name.replace(/_/g, " ");
   }

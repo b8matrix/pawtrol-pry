@@ -1,5 +1,5 @@
 // One adapter for every OpenAI-compatible chat-completions API (OpenAI,
-// OpenRouter, Groq, NVIDIA). The legacy bundle had three copies of this code
+// OpenRouter, Groq, NVIDIA, Gemini, Cerebras). The legacy bundle had three copies of this code
 // differing only in the options below.
 
 import OpenAI from "openai";
@@ -21,9 +21,39 @@ export interface OpenAICompatibleOptions {
   defaultHeaders?: Record<string, string>;
   /** Ask for a final usage chunk (`stream_options.include_usage`). */
   includeUsage?: boolean;
+  /** Extra top-level request fields, e.g. Gemini's `reasoning_effort`. */
+  extraBody?: Record<string, unknown>;
+  /** Strip JSON Schema keywords the provider rejects (Gemini). */
+  cleanToolSchemas?: boolean;
+  /**
+   * Replay `extra_content` on tool calls. Gemini 3 answers 400 when a replayed
+   * call has no thought signature, so calls without one (the deterministic fast
+   * path) get Google's documented skip sentinel.
+   */
+  thoughtSignatures?: boolean;
 }
 
-export function toChatMessages(system: string, messages: ConversationMessage[]): any[] {
+const SKIP_THOUGHT_SIGNATURE = { google: { thought_signature: "skip_thought_signature_validator" } };
+
+// Keywords Gemini's function-declaration schema subset rejects.
+const UNSUPPORTED_SCHEMA_KEYS = new Set(["additionalProperties", "$schema", "$id", "$ref", "$defs", "definitions"]);
+
+export function cleanSchema(schema: unknown): unknown {
+  if (Array.isArray(schema)) return schema.map(cleanSchema);
+  if (!schema || typeof schema !== "object") return schema;
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(schema)) {
+    if (UNSUPPORTED_SCHEMA_KEYS.has(key)) continue;
+    if (key === "properties" && value && typeof value === "object") {
+      out.properties = Object.fromEntries(Object.entries(value).map(([name, sub]) => [name, cleanSchema(sub)]));
+    } else {
+      out[key] = cleanSchema(value);
+    }
+  }
+  return out;
+}
+
+export function toChatMessages(system: string, messages: ConversationMessage[], thoughtSignatures = false): any[] {
   const out: any[] = [{ role: "system", content: system }];
   for (const message of messages) {
     if (message.role === "user") {
@@ -40,6 +70,7 @@ export function toChatMessages(system: string, messages: ConversationMessage[]):
                 id: call.id,
                 type: "function",
                 function: { name: call.name, arguments: JSON.stringify(call.input) },
+                ...(thoughtSignatures ? { extra_content: call.extraContent ?? SKIP_THOUGHT_SIGNATURE } : {}),
               })),
             }
           : {}),
@@ -53,15 +84,34 @@ export function toChatMessages(system: string, messages: ConversationMessage[]):
         content: result.isError ? `ERROR: ${result.content}` : result.content,
       });
     }
+    // Chat-completions tool messages are text-only, so screenshots follow as a user turn.
+    const images = message.results.filter((result) => result.image);
+    if (images.length > 0) {
+      out.push({
+        role: "user",
+        content: [
+          { type: "text", text: "Screenshot returned by the screenshot tool (masked on device):" },
+          ...images.map((result) => ({ type: "image_url", image_url: { url: result.image } })),
+        ],
+      });
+    }
   }
   return out;
 }
 
-export function toChatTools(tools: ToolDefinition[]): any[] {
-  return tools.map((tool) => ({
-    type: "function",
-    function: { name: tool.name, description: tool.description, parameters: tool.parameters },
-  }));
+export function toChatTools(tools: ToolDefinition[], clean = false): any[] {
+  return tools.map((tool) => {
+    if (!clean) {
+      return { type: "function", function: { name: tool.name, description: tool.description, parameters: tool.parameters } };
+    }
+    const parameters = cleanSchema(tool.parameters) as Record<string, any>;
+    // Gemini rejects an OBJECT schema with no properties; a parameterless tool omits it.
+    const empty = parameters.type === "object" && Object.keys(parameters.properties ?? {}).length === 0;
+    return {
+      type: "function",
+      function: { name: tool.name, description: tool.description, ...(empty ? {} : { parameters }) },
+    };
+  });
 }
 
 function toStopReason(finishReason: string | undefined, hasToolCalls: boolean): StopReason {
@@ -146,11 +196,12 @@ export function createOpenAICompatiblePlanner(apiKey: string, model: string, opt
         stream = (await client.chat.completions.create(
           {
             model,
-            messages: toChatMessages(system, messages),
-            tools: toChatTools(tools),
+            messages: toChatMessages(system, messages, options.thoughtSignatures),
+            tools: toChatTools(tools, options.cleanToolSchemas),
             stream: true,
             ...(options.includeUsage ? { stream_options: { include_usage: true } } : {}),
             [options.maxTokensParam]: options.maxTokens,
+            ...options.extraBody,
           } as any,
           { signal },
         )) as unknown as AsyncIterable<any>;
@@ -162,7 +213,7 @@ export function createOpenAICompatiblePlanner(apiKey: string, model: string, opt
       let refusal = "";
       let finishReason: string | undefined;
       let usage: TokenUsage | undefined;
-      const partialCalls = new Map<number, { id: string; name: string; args: string }>();
+      const partialCalls = new Map<number, { id: string; name: string; args: string; extra?: Record<string, unknown> }>();
 
       try {
         for await (const chunk of stream) {
@@ -187,6 +238,7 @@ export function createOpenAICompatiblePlanner(apiKey: string, model: string, opt
             if (call.id) partial.id = call.id;
             if (call.function?.name) partial.name = call.function.name;
             if (call.function?.arguments) partial.args += call.function.arguments;
+            if (call.extra_content) partial.extra = call.extra_content;
             partialCalls.set(call.index, partial);
           }
         }
@@ -197,7 +249,12 @@ export function createOpenAICompatiblePlanner(apiKey: string, model: string, opt
       const toolCalls = Array.from(partialCalls.entries())
         .sort(([a], [b]) => a - b)
         .filter(([, call]) => call.name)
-        .map(([index, call]) => ({ id: call.id || `call_${index}`, name: call.name, input: parseToolInput(call.args) }));
+        .map(([index, call]) => ({
+          id: call.id || `call_${index}`,
+          name: call.name,
+          input: parseToolInput(call.args),
+          ...(call.extra ? { extraContent: call.extra } : {}),
+        }));
 
       if (refusal) return { text: refusal, toolCalls: [], stopReason: "refusal", refusal, usage };
       return { text, toolCalls, stopReason: toStopReason(finishReason, toolCalls.length > 0), usage };

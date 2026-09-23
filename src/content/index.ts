@@ -2,10 +2,14 @@
 // relays tripwire alerts raised by the MAIN-world script.
 
 import { performAction } from "./actions";
+import { handleLauncherMessage, initLauncher } from "./launcher";
 import { findMediaRegions, findSensitiveRegions } from "./sensitive-regions";
 import { takeSnapshot } from "./snapshot";
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (typeof message?.kind == "string" && message.kind.startsWith("launcher-")) {
+    return handleLauncherMessage(message, sendResponse);
+  }
   switch (message.kind) {
     case "ping":
       sendResponse({ ok: true, detail: "alive" });
@@ -54,3 +58,5 @@ window.addEventListener("__PRY_TRIPWIRE_ALERT__", (event) => {
   const detail = (event as CustomEvent).detail;
   if (detail) chrome.runtime.sendMessage({ type: "TRIPWIRE_ALERT", detail }).catch(() => {});
 });
+
+initLauncher();

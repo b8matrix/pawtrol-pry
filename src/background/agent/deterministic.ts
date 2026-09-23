@@ -45,7 +45,8 @@ export interface DeterministicResult {
 const UNRESOLVED: DeterministicResult = { resolved: false };
 
 export function resolveDeterministically(task: string, snapshot: PageSnapshot | null): DeterministicResult {
-  if (!snapshot) return UNRESOLVED;
+  // Navigation needs no page: it works from browser-internal pages too.
+  if (!snapshot) return resolveNavigation(task) ?? UNRESOLVED;
   const command = task.toLowerCase().trim();
 
   const click = command.match(/^(?:click|tap|press|hit|select)\s+(?:on\s+|the\s+)?["']?(.+?)["']?\s*$/i);
@@ -123,7 +124,17 @@ export function resolveDeterministically(task: string, snapshot: PageSnapshot | 
     return { resolved: true, action: { name: "scroll", input: { direction: where } }, explanation: `Scrolled ${where}` };
   }
 
-  // Original case again: URL paths and queries are case-sensitive.
+  const navigation = resolveNavigation(task);
+  if (navigation) return navigation;
+
+  const key = command.match(/^(?:press|hit)\s+(enter|escape|tab|space|backspace|delete|arrowdown|arrowup|arrowleft|arrowright)$/i);
+  if (key) return { resolved: true, action: { name: "key", input: { key: key[1] } }, explanation: `Press ${key[1]}` };
+  return UNRESOLVED;
+}
+
+/** "go to / open / visit X". Null when the task is not a navigation command. */
+function resolveNavigation(task: string): DeterministicResult | null {
+  // Original case: URL paths and queries are case-sensitive.
   const go = task.trim().match(/^(?:go to|open|navigate to|visit)\s+(.+)$/i);
   if (go) {
     const destination = go[1].trim();
@@ -159,8 +170,5 @@ export function resolveDeterministically(task: string, snapshot: PageSnapshot | 
       explanation: `Navigate to ${url.slice(0, 50)}`,
     };
   }
-
-  const key = command.match(/^(?:press|hit)\s+(enter|escape|tab|space|backspace|delete|arrowdown|arrowup|arrowleft|arrowright)$/i);
-  if (key) return { resolved: true, action: { name: "key", input: { key: key[1] } }, explanation: `Press ${key[1]}` };
-  return UNRESOLVED;
+  return null;
 }

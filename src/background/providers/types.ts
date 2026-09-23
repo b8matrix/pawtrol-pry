@@ -11,12 +11,22 @@ export interface ToolCall {
   id: string;
   name: string;
   input: Record<string, unknown>;
+  /**
+   * Provider metadata that must be replayed verbatim with this call, such as
+   * Gemini's `extra_content.google.thought_signature`.
+   */
+  extraContent?: Record<string, unknown>;
 }
 
 export interface ToolResultContent {
   id: string;
   content: string;
   isError?: boolean;
+  /**
+   * A redacted, verified screenshot (data URL) for planners that read images.
+   * Only the newest one is kept; compactHistory drops older ones.
+   */
+  image?: string;
 }
 
 export type ConversationMessage =
@@ -87,4 +97,11 @@ export function parseToolInput(raw: unknown): Record<string, unknown> {
   } catch {
     return {};
   }
+}
+
+export function splitDataUrl(dataUrl: string): { mediaType: string; base64: string } {
+  const comma = dataUrl.indexOf(",");
+  const header = comma >= 0 ? dataUrl.slice(0, comma) : "";
+  const match = /^data:([^;]+);base64$/i.exec(header);
+  return { mediaType: match ? match[1] : "image/jpeg", base64: comma >= 0 ? dataUrl.slice(comma + 1) : dataUrl };
 }

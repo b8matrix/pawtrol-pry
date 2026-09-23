@@ -41,6 +41,27 @@ const COMPATIBLE: Record<CompatibleProvider, OpenAICompatibleOptions> = {
     maxTokensParam: "max_tokens",
     streamReasoning: false,
   },
+  gemini: {
+    displayName: "Gemini",
+    baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/",
+    // Thinking tokens count against this, as with gpt-oss on Groq.
+    maxTokens: 8000,
+    maxTokensParam: "max_tokens",
+    streamReasoning: false,
+    includeUsage: true,
+    // Gemini 3 cannot switch thinking off; "low" is its fastest setting.
+    extraBody: { reasoning_effort: "low" },
+    cleanToolSchemas: true,
+    thoughtSignatures: true,
+  },
+  cerebras: {
+    displayName: "Cerebras",
+    baseURL: "https://api.cerebras.ai/v1",
+    maxTokens: 4096,
+    maxTokensParam: "max_completion_tokens",
+    streamReasoning: false,
+    includeUsage: true,
+  },
 };
 
 export function createPlanner(settings: Settings): Planner {

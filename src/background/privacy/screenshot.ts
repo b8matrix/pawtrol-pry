@@ -62,11 +62,28 @@ async function ensureOffscreenDocument(): Promise<void> {
   } catch {}
 }
 
+const LAUNCHER_HIDE_TIMEOUT_MS = 1500;
+
+/** Resolves once the launcher has repainted hidden, or at once if the page has none. */
+function setLauncherHidden(tabId: number, hidden: boolean): Promise<void> {
+  const reply = chrome.tabs.sendMessage(tabId, { kind: hidden ? "launcher-hide" : "launcher-show" }).catch(() => {});
+  if (!hidden) return Promise.resolve();
+  return Promise.race([reply.then(() => {}), new Promise<void>((r) => setTimeout(r, LAUNCHER_HIDE_TIMEOUT_MS))]);
+}
+
 async function captureActiveTab(): Promise<{ dataUrl: string; width: number; height: number } | null> {
   try {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id) return null;
-    const dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" });
+    // The page launcher can show the task, answers and resolved values, and
+    // screenshot redaction only covers page content, so it is hidden for the capture.
+    await setLauncherHidden(tab.id, true);
+    let dataUrl: string;
+    try {
+      dataUrl = await chrome.tabs.captureVisibleTab(tab.windowId, { format: "png" });
+    } finally {
+      setLauncherHidden(tab.id, false);
+    }
     const bitmap = await createImageBitmap(await (await fetch(dataUrl)).blob());
     const { width, height } = bitmap;
     bitmap.close();

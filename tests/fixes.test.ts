@@ -4,6 +4,7 @@
 import { describe, expect, test } from "vitest";
 import { resolveDeterministically } from "../src/background/agent/deterministic";
 import { TokenVault } from "../src/background/privacy/vault";
+import { normalizeSettings } from "../src/background/settings";
 import type { PageSnapshot } from "../src/shared/types";
 import { VALID_AADHAAR_SPACED } from "./fixtures";
 import { legacy } from "./legacy";
@@ -64,5 +65,19 @@ describe("deterministic planner keeps the case of typed values and URLs", () => 
 
   test("compound commands still defer to the planner regardless of case", () => {
     expect(resolveDeterministically("Open YouTube And search cats", snapshot).resolved).toBe(false);
+  });
+});
+
+describe("settings know the providers added after legacy", () => {
+  test("Gemini and Cerebras get empty keys and default models; stored values win", () => {
+    const fresh = normalizeSettings(undefined);
+    expect(legacy.normalizeSettings(undefined).apiKeys.gemini).toBeUndefined();
+    expect(fresh.apiKeys).toMatchObject({ gemini: "", cerebras: "" });
+    expect(fresh.models).toMatchObject({ gemini: "gemini-3.5-flash-lite", cerebras: "gpt-oss-120b" });
+
+    const stored = normalizeSettings({ provider: "gemini", apiKeys: { gemini: "k" }, models: { cerebras: "qwen-3.8-27b" } });
+    expect(stored.provider).toBe("gemini");
+    expect(stored.apiKeys.gemini).toBe("k");
+    expect(stored.models.cerebras).toBe("qwen-3.8-27b");
   });
 });

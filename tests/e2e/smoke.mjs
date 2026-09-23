@@ -45,6 +45,13 @@ const PAGE = `<!doctype html>
     </form>
   </main>
   <script>
+    // Like many big sites: global capture-phase handlers that swallow clicks and
+    // eat Space/arrow keys. The page launcher must keep working regardless.
+    document.addEventListener("click", (e) => e.stopPropagation(), true);
+    document.addEventListener("keydown", (e) => {
+      if (e.key === " " || e.key.startsWith("Arrow")) e.preventDefault();
+      e.stopPropagation();
+    }, true);
     // A leaky analytics beacon for the tripwire to catch.
     setTimeout(() => fetch("/collect?aadhaar=${AADHAAR.replace(/ /g, "")}").catch(() => {}), 500);
   </script>
@@ -70,6 +77,8 @@ const pageUrl = `http://127.0.0.1:${sitePort}/profile`;
 
 // --- Mock Ollama planner -------------------------------------------------------
 const plannerRequests = [];
+// The screenshot tool asks Ollama's vision model on the OpenAI-style endpoint.
+const visionRequests = [];
 const ollama = createServer((req, res) => {
   // The extension calls from a chrome-extension:// origin.
   res.setHeader("access-control-allow-origin", "*");
@@ -78,6 +87,12 @@ const ollama = createServer((req, res) => {
   let body = "";
   req.on("data", (chunk) => (body += chunk));
   req.on("end", () => {
+    if (req.url?.startsWith("/v1/chat/completions")) {
+      visionRequests.push(body);
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify({ choices: [{ message: { content: "MOCK VISION: a profile form with a search box." } }] }));
+      return;
+    }
     plannerRequests.push(body);
     const parsed = JSON.parse(body);
     // User turns only: the system prompt itself mentions example tokens like <ID_3>.
@@ -107,6 +122,7 @@ const ollama = createServer((req, res) => {
                     { function: { name: "extract_text", arguments: {} } },
                     { function: { name: "find_text", arguments: { query: "Aadhaar" } } },
                     { function: { name: "note", arguments: { text: "searched for the ID" } } },
+                    { function: { name: "screenshot", arguments: { question: "Is the search box filled?" } } },
                   ]
                 : []),
             ],
@@ -204,6 +220,13 @@ try {
     check(/Page text:/.test(toolText), "extract_text returned page text (sanitized)");
     check(/Working memory[\s\S]*searched for the ID/.test(toolText), "note kept in working memory");
     check((toolText.match(/--- Page after this action/g) ?? []).length === 1, "batched calls re-read the page once");
+    check(/described by [^:]+: MOCK VISION/.test(toolText), `screenshot tool returned the vision description (${toolText.match(/Screenshot[^\n]{0,160}/)?.[0] ?? "none"})`);
+    check(visionRequests.length === 1, `vision model called once for the screenshot (got ${visionRequests.length})`);
+    const visionBody = visionRequests[0] ? JSON.parse(visionRequests[0]) : null;
+    const visionImage = visionBody?.messages?.[0]?.content?.find?.((part) => part.type === "image_url")?.image_url?.url ?? "";
+    check(visionImage.startsWith("data:image/jpeg;base64,"), "vision model got the redacted JPEG");
+    const visionText = visionRequests.join("\n").replace(/data:image\/[a-z]+;base64,[A-Za-z0-9+/=]+/g, "");
+    for (const value of RAW_VALUES) check(!visionText.includes(value), `raw value never sent to vision model: ${JSON.stringify(value)}`);
   }
 
   const typed = await page.evaluate(() => document.querySelector('input[name="search"]').value);
@@ -221,6 +244,55 @@ try {
 
   const history = await panel.evaluate(() => chrome.runtime.sendMessage({ kind: "get-history" }));
   check(history.sessions.length === 1 && history.sessions[0].status === "completed", "session saved to history");
+
+  const waitForRuns = async (count, timeoutMs) => {
+    const since = Date.now();
+    for (;;) {
+      await panel.waitForTimeout(1000);
+      const s = await panel.evaluate(() => chrome.runtime.sendMessage({ kind: "get-state" }));
+      if (!s.running && s.transcript.filter((e) => /Task ended/.test(e.text)).length >= count) return s;
+      if (Date.now() - since > timeoutMs) return s;
+    }
+  };
+
+  if (agentToolsV2) {
+    // --- Page launcher: a task started from the floating button, with real input.
+    // Its shadow root is closed, so it is driven like a user would: click, type, Enter.
+    const plannerBefore = plannerRequests.length;
+    await page.bringToFront();
+    const viewport = page.viewportSize() ?? { width: 1280, height: 720 };
+    await page.mouse.click(viewport.width - 42, viewport.height - 42);
+    await page.waitForTimeout(300);
+    if (process.env.PAWTROL_E2E_LAUNCHER_SHOT) await page.screenshot({ path: process.env.PAWTROL_E2E_LAUNCHER_SHOT });
+    const launcherTask = "Put my Aadhaar number into the search box again";
+    await page.keyboard.type(launcherTask);
+    await page.keyboard.press("Enter");
+    const afterLauncher = await waitForRuns(2, 120_000);
+    const launcherRun = afterLauncher.transcript.filter((e) => e.role === "user").pop();
+    check(launcherRun?.text === launcherTask, "page launcher started a run on its own tab");
+    check(afterLauncher.transcript.filter((e) => /Task ended/.test(e.text)).length >= 2, "launcher run finished");
+    const launcherEgress = plannerRequests.slice(plannerBefore).join("\n");
+    check(plannerRequests.length > plannerBefore, `launcher run called the planner (${plannerRequests.length - plannerBefore} requests)`);
+    check(
+      !/What should I do on this page|Pawtrol · this tab|takes control of this tab/.test(launcherEgress),
+      "launcher UI never appears in page snapshots sent to the planner",
+    );
+    for (const value of RAW_VALUES) check(!launcherEgress.includes(value), `launcher run never sent raw value: ${JSON.stringify(value)}`);
+
+    // --- A run that starts on a browser-internal page takes over the tab by navigating.
+    const blank = await context.newPage();
+    await blank.goto("about:blank");
+    await blank.bringToFront();
+    const blankTabId = await worker.evaluate(async () => (await chrome.tabs.query({})).find((t) => t.url === "about:blank")?.id);
+    await panel.evaluate(
+      ({ tabId, url }) => chrome.runtime.sendMessage({ kind: "run", task: `go to ${url}`, tabId }),
+      { tabId: blankTabId, url: pageUrl },
+    );
+    const afterInternal = await waitForRuns(3, 60_000);
+    const blankUrl = await worker.evaluate(async (id) => (await chrome.tabs.get(id)).url, blankTabId);
+    check(blankUrl === pageUrl, `run from about:blank navigated the tab (${blankUrl})`);
+    check(!afterInternal.transcript.some((e) => /Chrome blocks extensions/.test(e.text)), "internal start page is no longer refused");
+  }
 
   check(panelErrors.length === 0, `side panel had no uncaught errors ${panelErrors.join(" | ")}`);
   check(workerErrors.length === 0, `service worker logged no errors ${workerErrors.join(" | ")}`);

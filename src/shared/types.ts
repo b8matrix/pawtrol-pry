@@ -2,7 +2,7 @@
 // <-> side panel <-> offscreen document). Field names are part of the wire
 // protocol with the existing side panel bundle — do not rename them.
 
-export type ProviderId = "anthropic" | "openai" | "openrouter" | "ollama" | "groq" | "nvidia";
+export type ProviderId = "anthropic" | "openai" | "openrouter" | "ollama" | "groq" | "nvidia" | "gemini" | "cerebras";
 
 export interface Settings {
   provider: ProviderId;
