@@ -43,7 +43,7 @@ const PROVIDERS = {
   gemini: {
     chip: "Gemini",
     label: "Google Gemini",
-    models: ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-lite", "gemini-2.0-pro-exp-02-05"],
+    models: ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.1-flash-lite"],
   },
 };
 const DEFAULT_PROVIDER = "ollama";
@@ -283,8 +283,8 @@ function normalizeSettings(raw) {
   if (s.apiKey && !apiKeys.anthropic) apiKeys.anthropic = s.apiKey;
   const provider = PROVIDERS[s.provider] ? s.provider : DEFAULT_PROVIDER;
   const models = { ...(s.models ?? {}) };
-  if (models.gemini === "gemini-2.5-flash" || models.gemini === "gemini-2.5-pro") {
-    models.gemini = "gemini-2.0-flash";
+  if (!models.gemini || models.gemini.startsWith("gemini-1.")) {
+    models.gemini = "gemini-3.8-flash";
   }
   return { ...s, provider, apiKeys, models };
 }
@@ -360,7 +360,8 @@ function renderModelMenu() {
   const list = $("model-list");
   const p = PROVIDERS[settings.provider];
   const model = currentModel();
-  const options = p.models.includes(model) ? p.models : [model, ...p.models];
+  const available = settings.fetchedModels?.[settings.provider] || p.models;
+  const options = available.includes(model) ? available : [model, ...available];
 
   $("model-menu-head").textContent = `${p.label} models`;
   list.replaceChildren();

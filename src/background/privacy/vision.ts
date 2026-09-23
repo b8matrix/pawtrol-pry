@@ -10,7 +10,7 @@ export const DEFAULT_VISION_MODELS: Record<ProviderId, string> = {
   openrouter: "openai/gpt-4o-mini",
   ollama: "llama3.2-vision",
   anthropic: "claude-sonnet-4-5",
-  gemini: "gemini-2.0-flash",
+  gemini: "gemini-3.8-flash",
 };
 
 export const VISION_SUPPORTED: Record<ProviderId, boolean> = {
