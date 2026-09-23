@@ -54,10 +54,10 @@ export class TabController {
       const tab = await chrome.tabs.get(this.tabId).catch(() => null);
       if (!tab) return;
       if (tab.status === "complete") {
-        await new Promise((r) => setTimeout(r, 400));
+        await new Promise((r) => setTimeout(r, 200));
         return;
       }
-      await new Promise((r) => setTimeout(r, 250));
+      await new Promise((r) => setTimeout(r, 150));
     }
   }
 

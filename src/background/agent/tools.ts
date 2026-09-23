@@ -6,8 +6,50 @@ export const TOOLS: ToolDefinition[] = [
   {
     name: "read_page",
     description:
-      "Re-read the current page and return a fresh list of elements with new ids. Element ids are only valid for the most recent read — call this after any navigation, or whenever an id you expected no longer resolves.",
-    parameters: noParams,
+      "Re-read the current page and return a fresh list of elements with new ids. Element ids are only valid for the most recent read — call this after any navigation, or whenever an id you expected no longer resolves. On large pages (seat maps, long result lists) pass filter to list only elements whose label contains that text, or offset to page through the rest of the list.",
+    parameters: {
+      type: "object",
+      properties: {
+        filter: { type: "string", description: "Only list elements whose label or value contains this text (case-insensitive)" },
+        offset: { type: "number", description: "Skip this many elements; use the offset a truncated read suggests" },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "extract_text",
+    description:
+      "Read the page's visible text in full (products, prices, specs, reviews, articles, tables) without scrolling. Pass query to get only the lines mentioning it, or offset to continue a long page. Much cheaper than scrolling and re-reading.",
+    parameters: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Only return lines containing any of these words" },
+        offset: { type: "number", description: "Character offset to continue from" },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "update_plan",
+    description:
+      "Write or rewrite your checklist for a multi-step task. Mark finished items [x] and open ones [ ]. The plan stays visible to you for the whole task, even after old pages are dropped from context.",
+    parameters: {
+      type: "object",
+      properties: { plan: { type: "string", description: "Short checklist, one item per line" } },
+      required: ["plan"],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: "note",
+    description:
+      "Save a fact you will need later: a product name with its price and rating, a showtime, an option you compared. Older page snapshots are dropped from context; only notes and the plan persist, so note anything you will compare or report.",
+    parameters: {
+      type: "object",
+      properties: { text: { type: "string", description: "One concise fact" } },
+      required: ["text"],
+      additionalProperties: false,
+    },
   },
   {
     name: "click",
@@ -143,7 +185,20 @@ export const TOOLS: ToolDefinition[] = [
 ];
 
 /** Tools executed by the content script inside the page (the rest use chrome.tabs). */
-export const IN_PAGE_TOOLS = new Set(["click", "type", "select", "scroll", "key", "find_text", "wait", "read_page"]);
+export const IN_PAGE_TOOLS = new Set([
+  "click",
+  "type",
+  "select",
+  "scroll",
+  "key",
+  "find_text",
+  "extract_text",
+  "wait",
+  "read_page",
+]);
+
+/** In-page tools that only read; they leave the element ids and the page as they were. */
+export const READ_ONLY_TOOLS = new Set(["find_text", "extract_text", "wait"]);
 
 /** One-line label for a step in the transcript. */
 export function describeToolCall(name: string, input: Record<string, unknown>): string {
@@ -158,7 +213,13 @@ export function describeToolCall(name: string, input: Record<string, unknown>): 
     case "open_tab":
       return `Open ${input.url} in a new tab`;
     case "read_page":
-      return "Read the page";
+      return input.filter ? `Look for "${input.filter}" on the page` : "Read the page";
+    case "extract_text":
+      return input.query ? `Read text about "${input.query}"` : "Read the page text";
+    case "update_plan":
+      return "Update plan";
+    case "note":
+      return `Note: ${String(input.text ?? "").slice(0, 80)}`;
     case "scroll":
       return `Scroll ${input.direction}`;
     case "find_text":

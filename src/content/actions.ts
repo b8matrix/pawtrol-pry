@@ -2,11 +2,37 @@
 // worker; results go back through the vault's redactValues before any model sees them.
 
 import type { ActionResult, ToolAction, ToolInput } from "../shared/types";
-import { elementById, takeSnapshot } from "./snapshot";
+import { elementById, extractText, takeSnapshot } from "./snapshot";
 
 const fail = (detail: string): ActionResult => ({ ok: false, detail });
 const succeed = (detail: string): ActionResult => ({ ok: true, detail });
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Wait until the DOM stops changing: at least minMs, then until no mutation
+ * for quietMs, capped at maxMs. Replaces fixed sleeps, which were too long on
+ * static pages and too short on slow single-page apps.
+ */
+function settle(minMs: number, quietMs: number, maxMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    const start = performance.now();
+    let last = start;
+    const observer = new MutationObserver(() => {
+      last = performance.now();
+    });
+    observer.observe(document.documentElement, { subtree: true, childList: true, attributes: true, characterData: true });
+    const tick = () => {
+      const now = performance.now();
+      if (now - start >= maxMs || (now - start >= minMs && now - last >= quietMs)) {
+        observer.disconnect();
+        resolve();
+        return;
+      }
+      setTimeout(tick, 40);
+    };
+    setTimeout(tick, Math.min(minMs, 40));
+  });
+}
 
 function describeElement(element: Element): string {
   const text = (element as HTMLElement).innerText?.trim().slice(0, 60);
@@ -97,7 +123,7 @@ async function typeInto(element: Element, text: string, submit: boolean): Promis
     // Synthetic Enter does not submit forms natively; do it unless the page cancelled the keydown.
     const form = (target as HTMLInputElement).form;
     if (!defaultPrevented && form) form.requestSubmit?.();
-    await sleep(400);
+    await settle(150, 200, 1200);
   }
   return succeed(`Typed ${JSON.stringify(text)} into ${describeElement(target)}${submit ? " and pressed Enter" : ""}.`);
 }
@@ -126,7 +152,7 @@ export async function performAction(action: ToolAction): Promise<ActionResult> {
         if (typeof target == "string") return fail(target);
         await scrollIntoView(target);
         dispatchClick(target);
-        await sleep(500);
+        await settle(120, 200, 1000);
         return succeed(`Clicked ${describeElement(target)}.`);
       }
       case "type": {
@@ -158,7 +184,7 @@ export async function performAction(action: ToolAction): Promise<ActionResult> {
         const direction = input.direction === "up" ? -1 : 1;
         const amount = typeof input.amount == "number" ? input.amount : innerHeight * 0.8;
         scrollBy({ top: direction * amount, behavior: "instant" as ScrollBehavior });
-        await sleep(300);
+        await settle(80, 150, 800);
         const atBottom = scrollY + innerHeight >= document.body.scrollHeight - 4;
         return succeed(
           `Scrolled ${input.direction === "up" ? "up" : "down"}. Now at y=${Math.round(scrollY)}` +
@@ -171,18 +197,40 @@ export async function performAction(action: ToolAction): Promise<ActionResult> {
         const init = { bubbles: true, cancelable: true, key, code: key };
         target.dispatchEvent(new KeyboardEvent("keydown", init));
         target.dispatchEvent(new KeyboardEvent("keyup", init));
-        await sleep(200);
+        await settle(80, 150, 1000);
         return succeed(`Pressed ${key}.`);
       }
       case "find_text":
         return findVisibleText(String(input.query ?? ""));
+      case "extract_text": {
+        const query = typeof input.query == "string" ? input.query : "";
+        const { text, nextOffset, total } = extractText(query, Number(input.offset ?? 0));
+        if (!text) return fail(query ? `No text mentioning ${JSON.stringify(query)} on this page.` : "The page has no visible text.");
+        const more =
+          nextOffset === undefined
+            ? ""
+            : `
+…[${total - nextOffset} more characters; call extract_text with offset=${nextOffset}${query ? " and the same query" : ""}]`;
+        return succeed(`Page text${query ? ` mentioning ${JSON.stringify(query)}` : ""}:
+${text}${more}`);
+      }
       case "wait": {
         const ms = Math.min(Number(input.ms ?? 1000), 10_000);
         await sleep(ms);
         return succeed(`Waited ${ms}ms.`);
       }
-      case "read_page":
-        return { ok: true, detail: "Read the page.", snapshot: takeSnapshot() };
+      case "read_page": {
+        const snapshot = takeSnapshot({
+          filter: typeof input.filter == "string" ? input.filter : undefined,
+          offset: typeof input.offset == "number" ? input.offset : undefined,
+          limit: typeof input.limit == "number" ? input.limit : undefined,
+        });
+        const filtered = typeof input.filter == "string" && input.filter.trim() !== "";
+        if (filtered && snapshot.elements.length === 0) {
+          return { ok: false, detail: `No element labelled with ${JSON.stringify(input.filter)}. Try a shorter or different word.`, snapshot };
+        }
+        return { ok: true, detail: "Read the page.", snapshot };
+      }
       default:
         return fail(`Action ${name} is not handled in the page context.`);
     }

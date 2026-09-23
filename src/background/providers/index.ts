@@ -26,7 +26,8 @@ const COMPATIBLE: Record<CompatibleProvider, OpenAICompatibleOptions> = {
   groq: {
     displayName: "Groq",
     baseURL: "https://api.groq.com/openai/v1",
-    maxTokens: 2048,
+    // gpt-oss reasoning tokens count against this; 2048 cut tool calls short.
+    maxTokens: 4096,
     maxTokensParam: "max_tokens",
     streamReasoning: false,
   },

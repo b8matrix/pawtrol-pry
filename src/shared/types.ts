@@ -50,6 +50,10 @@ export interface PageSnapshot {
   text: string;
   truncated: boolean;
   scroll: { y: number; maxY: number };
+  /** Elements matching the read (before paging); set by paged or filtered reads. */
+  totalElements?: number;
+  /** How many matching elements this read skipped. */
+  offset?: number;
 }
 
 /** A screen-space box the content script believes is sensitive (CSS pixels). */

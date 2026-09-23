@@ -28,9 +28,10 @@ import {
   withTimeout,
 } from "./context";
 import { resolveDeterministically } from "./deterministic";
+import { INITIAL_PAGE, LoopGuard, hasPageBlock, MEMORY_TOOLS, WorkingMemory, compactHistory, pageFingerprint } from "./memory";
 import { COMPACT_SYSTEM_PROMPT, SYSTEM_PROMPT, taskMessage } from "./prompts";
 import { checkActionPolicy, findInjectionText } from "./safety";
-import { IN_PAGE_TOOLS, TOOLS, describeToolCall } from "./tools";
+import { READ_ONLY_TOOLS, TOOLS, describeToolCall } from "./tools";
 
 export type AgentEvent =
   | { kind: "entry"; entry: TranscriptEntry }
@@ -66,10 +67,11 @@ export interface AgentDeps {
 
 const PLANNER_TIMEOUT_MS = 35_000;
 const LOOP_REPEAT_LIMIT = 3;
-const LOOP_WINDOW = 5;
+const LOOP_WINDOW = 6;
 const NARRATION_FLUSH_MS = 60;
 const NARRATION_FLUSH_CHARS = 200;
-const PAGE_AFTER_ACTION = /\n\n--- Page after this action[\s\S]*$/;
+/** Tools whose text result is page content and must pass the PII pipeline. */
+const PAGE_TEXT_TOOLS = new Set(["find_text", "extract_text"]);
 
 const SCREENSHOT_WITHHELD = "[Screenshot withheld: on-device redaction could not be verified, so no image was sent]";
 
@@ -120,7 +122,7 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
   const isLocal = settings.provider === "ollama";
   const smallContext = settings.provider === "groq" || settings.provider === "nvidia";
   const systemPrompt = isLocal ? COMPACT_SYSTEM_PROMPT : SYSTEM_PROMPT;
-  const elementLimit = isLocal ? 15 : smallContext ? 30 : 50;
+  const elementLimit = isLocal ? 25 : smallContext ? 40 : 50;
   const planner = createPlanner(settings);
   const startedAt = Date.now();
   const countsEgress = settings.provider !== "ollama";
@@ -136,6 +138,8 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
   let estimatedTokens = 0;
   let errorCount = 0;
   let egressBytes = 0;
+  let finished = false;
+  const memory = new WorkingMemory();
 
   const falsePositivesSeen = new Set<string>();
   let falsePositiveCount = 0;
@@ -242,6 +246,58 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
     }
   }
 
+  /** Ledger, audit and learning bookkeeping for one processed screenshot. */
+  function recordCapture(capture: CapturedScreenshot, domDetections: DetectionRecord[]) {
+    const processed = capture.processed;
+    const visual = processed.detections.map((d) => ({ kind: d.kind, label: d.label, confidence: d.confidence }));
+    const verification = processed.verification;
+    noteVerification(verification);
+    if (visual.length > 0) logDetections(visual.map((d) => ({ ...d, method: "visual" }))).catch(() => {});
+    if (processed.redactedCount > 0) logRedaction(processed.redactedCount, "visual").catch(() => {});
+    if (verification && verification.regionsChecked > 0) {
+      logVerification(verification.verified, verification.regionsChecked, verification.leakedPatterns.length).catch(() => {});
+    }
+    recordVisualDetections(visual);
+    totalRedacted += processed.redactedCount;
+    recordAudit?.({
+      original: capture.original,
+      redacted: processed.redactedDataUrl,
+      detections: [...visual, ...labelDetections(domDetections)],
+      tokens: vault.getTokenSummary(),
+      redactedCount: processed.redactedCount,
+      verification,
+    });
+  }
+
+  // With vision off the screenshot never reaches the model; it only feeds the
+  // audit view. Process it in the background, one at a time, instead of
+  // blocking every step on the on-device pipeline (seconds per image).
+  let auditInFlight = false;
+  function auditInBackground(domDetections: DetectionRecord[]) {
+    if (!captureScreenshot || auditInFlight || finished) return;
+    auditInFlight = true;
+    captureScreenshot()
+      .then((capture) => {
+        if (capture && !finished) recordCapture(capture, domDetections);
+      })
+      .catch(() => {})
+      .finally(() => {
+        auditInFlight = false;
+      });
+  }
+
+  /** Page text returned by find_text/extract_text gets the same PII pipeline as snapshots. */
+  function sanitizePageText(text: string): string {
+    const result = sanitizeSnapshot(
+      { url: tab.url ?? "", title: "", elements: [], text, truncated: false, scroll: { y: 0, maxY: 0 } },
+      filters,
+    );
+    if (result.piiCount > 0) logRedaction(result.piiCount, "dom").catch(() => {});
+    totalRedacted += result.piiCount;
+    recordSanitizeOutcome(result);
+    return result.sanitized.text;
+  }
+
   if (snapshot) {
     logSnapshot(snapshot.url, snapshot.title, snapshot.elements.length).catch(() => {});
     const result = sanitizeSnapshot(snapshot, filters);
@@ -266,38 +322,20 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
   }
 
   let initialObservation = "";
-  if (captureScreenshot) {
+  if (captureScreenshot && visionEnabled && apiKey) {
     try {
       const capture = await captureScreenshot();
       if (capture) {
-        const processed = capture.processed;
-        const visual = processed.detections.map((d) => ({ kind: d.kind, label: d.label, confidence: d.confidence }));
-        const verification = processed.verification;
-        noteVerification(verification);
-        if (visual.length > 0) logDetections(visual.map((d) => ({ ...d, method: "visual" }))).catch(() => {});
-        if (processed.redactedCount > 0) logRedaction(processed.redactedCount, "visual").catch(() => {});
-        if (verification && verification.regionsChecked > 0) {
-          logVerification(verification.verified, verification.regionsChecked, verification.leakedPatterns.length).catch(
-            () => {},
-          );
-        }
-        recordVisualDetections(visual);
-        totalRedacted += processed.redactedCount;
-        recordAudit?.({
-          original: capture.original,
-          redacted: processed.redactedDataUrl,
-          detections: [...visual, ...labelDetections(lastDomDetections)],
-          tokens: vault.getTokenSummary(),
-          redactedCount: processed.redactedCount,
-          verification,
-        });
-        if (visionEnabled && apiKey && !signal.aborted) {
-          initialObservation = isSafeToSend(processed)
-            ? await appendVisionObservation(processed.redactedDataUrl, "")
+        recordCapture(capture, lastDomDetections);
+        if (!signal.aborted) {
+          initialObservation = isSafeToSend(capture.processed)
+            ? await appendVisionObservation(capture.processed.redactedDataUrl, "")
             : SCREENSHOT_WITHHELD;
         }
       }
     } catch {}
+  } else {
+    auditInBackground(lastDomDetections);
   }
 
   const { task: tokenizedTask, tokenCount: taskTokens } = vault.tokenizeTask(task);
@@ -338,36 +376,72 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
         (lessonsBlock ? `${lessonsBlock}\n\n` : "") +
         (trajectoriesBlock ? `${trajectoriesBlock}\n\n` : "") +
         taskMessage(tokenizedTask, stripUrlQuery(tab.url ?? ""), tab.title ?? "") +
-        (snapshot ? `\n\n--- Current page ---\n${formatSnapshot(snapshot)}` : "") +
+        (snapshot ? `${INITIAL_PAGE}${formatSnapshot(snapshot)}` : "") +
         (initialObservation ? `\n\n${initialObservation}` : ""),
     },
   ];
   elementsAtStepStart = snapshot?.elements ?? [];
   if (snapshot) warnOnInjection(snapshot, emit);
 
-  // Loop detection over the last few tool calls (unresolved inputs).
-  const recentCalls: { name: string; input: string }[] = [];
-  function rememberCall(name: string, input: unknown) {
-    recentCalls.push({ name, input: JSON.stringify(input) });
-    if (recentCalls.length > LOOP_WINDOW) recentCalls.shift();
-  }
-  function isLooping(): boolean {
-    if (recentCalls.length < LOOP_REPEAT_LIMIT) return false;
-    const last = recentCalls[recentCalls.length - 1];
-    let repeats = 0;
-    for (let i = recentCalls.length - 1; i >= 0 && recentCalls[i].name === last.name && recentCalls[i].input === last.input; i--) {
-      repeats++;
+  // Loop detection: the same call on an unchanged page, repeated.
+  const loopGuard = new LoopGuard(LOOP_REPEAT_LIMIT, LOOP_WINDOW);
+
+  /**
+   * Re-read the page after an action: sanitize, fit, screenshot (awaited only
+   * when the model will see it), and return the text to append to the result.
+   */
+  async function observePage(resultSnapshot: PageSnapshot | undefined, paged: boolean): Promise<string> {
+    const raw = resultSnapshot ?? (await controller.snapshot());
+    if (!raw) return "";
+    const navigated = snapshot && raw.url !== snapshot.url;
+    const sanitized = sanitizeSnapshot(raw, filters);
+    // A filtered or paged read asked for exactly these elements; keep offscreen ones.
+    const fitted = fitSnapshot(sanitized.sanitized, elementLimit, smallContext && !paged);
+    snapshot = fitted;
+    lastDomDetections = sanitized.detections;
+    totalRedacted += sanitized.piiCount;
+    recordSanitizeOutcome(sanitized);
+    warnOnInjection(raw, emit);
+
+    let text = "";
+    if (captureScreenshot && visionEnabled && apiKey) {
+      try {
+        const capture = await captureScreenshot();
+        if (capture) {
+          recordCapture(capture, sanitized.detections);
+          const { processed } = capture;
+          const verification = processed.verification;
+          text += `\n\n[Screenshot: ${processed.redactedCount} PII redacted]`;
+          if (verification && verification.regionsChecked > 0) {
+            text += verification.verified
+              ? ` [Re-OCR VERIFIED: ${verification.regionsRedacted}/${verification.regionsChecked} regions confirmed redacted]`
+              : ` [Re-OCR WARNING: ${verification.summary}]`;
+          }
+          if (!signal.aborted) {
+            text = isSafeToSend(processed)
+              ? await appendVisionObservation(processed.redactedDataUrl, text)
+              : `${text}\n\n${SCREENSHOT_WITHHELD}`;
+          }
+        }
+      } catch {}
+    } else {
+      auditInBackground(sanitized.detections);
     }
-    if (repeats >= LOOP_REPEAT_LIMIT) return true;
-    if (recentCalls.length >= 4) {
-      const [d, c, b, a] = recentCalls.slice(-4);
-      // A-B-A-B ping-pong.
-      if (a.name === c.name && a.input === c.input && b.name === d.name && b.input === d.input) return true;
-    }
-    return false;
+
+    const shown = fitted.elements.length;
+    const total = raw.totalElements ?? shown;
+    const next = (raw.offset ?? 0) + shown;
+    const more =
+      fitted.truncated && total > next
+        ? `\n[Showing ${shown} of ${total} elements. For the rest call read_page with offset=${next}, or with filter="<label text>" to find a specific one.]`
+        : "";
+    text +=
+      sanitized.piiCount > 0
+        ? `\n\n--- Page after this action (redacted ${sanitized.piiCount} PII) ---\n` + formatSnapshot(fitted)
+        : (navigated ? "\n\nThe page navigated." : "") + `\n\n--- Page after this action ---\n${formatSnapshot(fitted)}`;
+    return text + more;
   }
 
-  let finished = false;
   function finish() {
     if (finished) return;
     finished = true;
@@ -412,9 +486,9 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
       return;
     }
     elementsAtStepStart = snapshot?.elements ?? [];
-    if (isLooping()) {
+    if (loopGuard.isLooping()) {
       error(
-        `Loop detected: repeated "${recentCalls[recentCalls.length - 1].name}" ${LOOP_REPEAT_LIMIT} times. Stopping to prevent infinite loop. The page may need manual interaction.`,
+        `Loop detected: repeated "${loopGuard.lastName()}" ${LOOP_REPEAT_LIMIT} times without the page changing. Stopping. The page may need manual interaction.`,
       );
       finish();
       return;
@@ -436,7 +510,7 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
           },
         });
         if (checkActionPolicy(resolved.action, snapshot, settings.confirmRisky).verdict === "allow") {
-          rememberCall(resolved.action.name, resolved.action.input);
+          loopGuard.remember(resolved.action.name, resolved.action.input, pageFingerprint(snapshot));
           const t0 = performance.now();
           const outcome = await executeAction(controller, resolved.action);
           const latencyMs = performance.now() - t0;
@@ -451,14 +525,21 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
             cause: outcome.result.ok ? undefined : classifyFailure(outcome.result.detail),
           });
           emit({ kind: "patch", id: entryId, text: detail, pending: false });
-          if (outcome.result.snapshot) snapshot = sanitizeSnapshot(outcome.result.snapshot, filters).sanitized;
+          if (resolved.action.name === "type" && resolved.action.input.submit === true && outcome.result.ok) {
+            await controller.waitForLoad();
+          }
+          // Show the resulting page so the model does not spend a step on read_page.
+          const observed = await observePage(outcome.result.snapshot, false);
           const callId = `det-${entryId}`;
           messages.push({
             role: "assistant",
             text: resolved.explanation ?? "",
             toolCalls: [{ id: callId, name: resolved.action.name, input: resolved.action.input }],
           });
-          messages.push({ role: "tool", results: [{ id: callId, content: detail, isError: !outcome.result.ok }] });
+          messages.push({
+            role: "tool",
+            results: [{ id: callId, content: detail + observed, isError: !outcome.result.ok }],
+          });
           continue;
         }
       }
@@ -585,7 +666,16 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
     }
 
     const results: ToolResultContent[] = [];
-    for (const call of response.toolCalls) {
+    const calls = response.toolCalls;
+    // Element ids stay valid until the page is re-read, so a batch such as
+    // type-then-click runs against one snapshot, and the page is re-read once
+    // after the last call that can change it.
+    let lastPageChange = -1;
+    calls.forEach((call, i) => {
+      if (!MEMORY_TOOLS.has(call.name) && !READ_ONLY_TOOLS.has(call.name)) lastPageChange = i;
+    });
+
+    for (const [index, call] of calls.entries()) {
       if (signal.aborted) return;
       const action: ToolAction = { name: call.name, input: call.input };
       const stepId = nextEntryId();
@@ -593,6 +683,13 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
         kind: "entry",
         entry: { id: stepId, role: "step", action: call.name, text: describeToolCall(call.name, call.input), pending: true },
       });
+
+      if (MEMORY_TOOLS.has(call.name)) {
+        const outcome = memory.apply(call.name, call.input);
+        emit({ kind: "patch", id: stepId, text: outcome.detail, pending: false });
+        results.push({ id: call.id, content: outcome.detail, isError: !outcome.ok });
+        continue;
+      }
 
       const verdict = checkActionPolicy(action, snapshot, settings.confirmRisky);
       if (verdict.verdict === "refuse") {
@@ -635,7 +732,7 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
             results.push({
               id: call.id,
               isError: true,
-              content: `Element ${requestedId} not found. The page changed. Here are the current elements — pick the right one and retry:\n\n${current}`,
+              content: `Element ${requestedId} not found. The page changed — pick the right element from the current list and retry.\n\n--- Page after this action ---\n${current}`,
             });
             continue;
           }
@@ -666,14 +763,17 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
       }
       if (unknownToken) continue;
 
-      const resolvedAction: ToolAction = { name: call.name, input: resolveTokens(call.input) };
-      rememberCall(call.name, call.input);
+      const resolvedInput = resolveTokens(call.input);
+      if (call.name === "read_page") resolvedInput.limit = elementLimit;
+      const resolvedAction: ToolAction = { name: call.name, input: resolvedInput };
+      loopGuard.remember(call.name, call.input, pageFingerprint(snapshot));
       const t0 = performance.now();
       const outcome = await executeAction(controller, resolvedAction);
       const latencyMs = performance.now() - t0;
       controller = outcome.controller;
       const { result } = outcome;
-      const detail = vault.redactValues(result.detail);
+      const pageText = PAGE_TEXT_TOOLS.has(call.name) && result.ok ? sanitizePageText(result.detail) : result.detail;
+      const detail = vault.redactValues(pageText);
       actions.push({
         tool: call.name,
         success: result.ok,
@@ -685,83 +785,25 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
       logAction(call.name, result.ok, typeof call.input.element_id == "number" ? call.input.element_id : undefined).catch(
         () => {},
       );
-      emit({ kind: "patch", id: stepId, text: detail, pending: false });
+      emit({ kind: "patch", id: stepId, text: PAGE_TEXT_TOOLS.has(call.name) ? detail.slice(0, 300) : detail, pending: false });
       if (call.name === "type" && call.input.submit === true && result.ok) await controller.waitForLoad();
 
       let content = detail;
-      const refreshesPage = IN_PAGE_TOOLS.has(call.name) ? call.name !== "find_text" && call.name !== "wait" : true;
-      if (refreshesPage) {
-        const raw = result.snapshot ?? (await controller.snapshot());
-        if (raw) {
-          const navigated = snapshot && raw.url !== snapshot.url;
-          const sanitized = sanitizeSnapshot(raw, filters);
-          snapshot = fitSnapshot(sanitized.sanitized, elementLimit, smallContext);
-          lastDomDetections = sanitized.detections;
-          totalRedacted += sanitized.piiCount;
-          recordSanitizeOutcome(sanitized);
-          warnOnInjection(raw, emit);
-
-          if (captureScreenshot) {
-            try {
-              const capture = await captureScreenshot();
-              if (capture) {
-                const processed = capture.processed;
-                const visual = processed.detections.map((d) => ({ kind: d.kind, label: d.label, confidence: d.confidence }));
-                const verification = processed.verification;
-                noteVerification(verification);
-                content += `\n\n[Screenshot: ${processed.redactedCount} PII redacted]`;
-                if (verification && verification.regionsChecked > 0) {
-                  content += verification.verified
-                    ? ` [Re-OCR VERIFIED: ${verification.regionsRedacted}/${verification.regionsChecked} regions confirmed redacted]`
-                    : ` [Re-OCR WARNING: ${verification.summary}]`;
-                }
-                if (visual.length > 0) logDetections(visual.map((d) => ({ ...d, method: "visual" }))).catch(() => {});
-                if (processed.redactedCount > 0) logRedaction(processed.redactedCount, "visual").catch(() => {});
-                if (verification && verification.regionsChecked > 0) {
-                  logVerification(verification.verified, verification.regionsChecked, verification.leakedPatterns.length).catch(
-                    () => {},
-                  );
-                }
-                recordVisualDetections(visual);
-                totalRedacted += processed.redactedCount;
-                recordAudit?.({
-                  original: capture.original,
-                  redacted: processed.redactedDataUrl,
-                  detections: [...visual, ...labelDetections(sanitized.detections)],
-                  tokens: vault.getTokenSummary(),
-                  redactedCount: processed.redactedCount,
-                  verification,
-                });
-                if (visionEnabled && apiKey && !signal.aborted) {
-                  content = isSafeToSend(processed)
-                    ? await appendVisionObservation(processed.redactedDataUrl, content)
-                    : `${content}\n\n${SCREENSHOT_WITHHELD}`;
-                }
-              }
-            } catch {}
-          }
-
-          content +=
-            sanitized.piiCount > 0
-              ? `\n\n--- Page after this action (redacted ${sanitized.piiCount} PII) ---\n` + formatSnapshot(snapshot)
-              : (navigated ? "\n\nThe page navigated." : "") + `\n\n--- Page after this action ---\n${formatSnapshot(snapshot)}`;
-        }
+      // read_page's own snapshot resets the page's id registry, so it is always observed.
+      if (result.snapshot || index === lastPageChange) {
+        const paged = call.name === "read_page" && Boolean(call.input.filter || call.input.offset);
+        content += await observePage(result.snapshot, paged);
       }
       results.push({ id: call.id, content, isError: !result.ok });
     }
 
-    // Only the newest page state stays in context.
-    for (const message of messages) {
-      if (message.role !== "tool") continue;
-      for (const result of message.results) {
-        if (result.content.includes("\n\n--- Page after this action")) {
-          result.content = result.content.replace(
-            PAGE_AFTER_ACTION,
-            "\n\n[Previous page snapshot omitted — see latest read]",
-          );
-        }
-      }
-    }
+    // Only the newest page state and working memory stay in context.
+    compactHistory(
+      messages,
+      results.some((r) => hasPageBlock(r.content)),
+    );
+    const memoryBlock = memory.format();
+    if (memoryBlock && results.length > 0) results[results.length - 1].content += memoryBlock;
     messages.push({ role: "tool", results });
   }
   finish();

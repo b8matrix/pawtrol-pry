@@ -141,12 +141,23 @@ async function streamChat(
   }
 }
 
+const OLLAMA_NUM_CTX = 16_384;
+
 export function createOllamaPlanner(model: string): Planner {
   const baseUrl = OLLAMA_URL;
   return {
     label: `Ollama (Local) ${model}`,
     async run({ system, messages, tools, signal, onText }) {
-      const body = { model, messages: toOllamaMessages(system, messages), tools: toOllamaTools(tools), stream: true };
+      // Ollama defaults to a 2-4K context and silently drops the start of the
+      // prompt (the task) when the tools + page do not fit.
+      const body = {
+        model,
+        messages: toOllamaMessages(system, messages),
+        tools: toOllamaTools(tools),
+        stream: true,
+        options: { num_ctx: OLLAMA_NUM_CTX },
+        keep_alive: "30m",
+      };
       const finish = (result: { text: string; toolCalls: ToolCall[] }) => ({
         text: result.text,
         toolCalls: result.toolCalls,

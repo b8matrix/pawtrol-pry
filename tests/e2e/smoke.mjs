@@ -17,6 +17,8 @@ import { chromium } from "playwright";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 // PAWTROL_EXTENSION_DIR lets the same checks run against another build (e.g. the legacy root).
 const dist = process.env.PAWTROL_EXTENSION_DIR ?? join(root, "dist");
+// The legacy build predates extract_text, note and batched observation.
+const agentToolsV2 = !process.env.PAWTROL_EXTENSION_DIR;
 
 // Fake but checksum-valid identifiers.
 const AADHAAR = "2345 6789 0124";
@@ -99,6 +101,14 @@ const ollama = createServer((req, res) => {
           message: {
             tool_calls: [
               { function: { name: "type", arguments: { element_id: Number(searchId), text: token, reason: "test" } } },
+              // Bulk page text must pass the same PII pipeline as snapshots.
+              ...(agentToolsV2
+                ? [
+                    { function: { name: "extract_text", arguments: {} } },
+                    { function: { name: "find_text", arguments: { query: "Aadhaar" } } },
+                    { function: { name: "note", arguments: { text: "searched for the ID" } } },
+                  ]
+                : []),
             ],
           },
         }) + "\n",
@@ -188,6 +198,13 @@ try {
     .join("\n");
   check(!/\d<[A-Z]+_\d+>/.test(pageContext), "no digits glued onto tokens in planner context");
   check(!allEgress.includes("hunter2"), "password value never sent to planner");
+  if (agentToolsV2) {
+    const lastTurn = JSON.parse(plannerRequests[plannerRequests.length - 1]).messages.filter((m) => m.role === "tool");
+    const toolText = lastTurn.map((m) => m.content ?? "").join("\n");
+    check(/Page text:/.test(toolText), "extract_text returned page text (sanitized)");
+    check(/Working memory[\s\S]*searched for the ID/.test(toolText), "note kept in working memory");
+    check((toolText.match(/--- Page after this action/g) ?? []).length === 1, "batched calls re-read the page once");
+  }
 
   const typed = await page.evaluate(() => document.querySelector('input[name="search"]').value);
   check(typed.replace(/\D/g, "") === AADHAAR.replace(/\D/g, ""), `token resolved locally into the page (${JSON.stringify(typed)})`);

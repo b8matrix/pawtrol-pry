@@ -27,10 +27,12 @@ function toAnthropicMessages(messages: ConversationMessage[]): Anthropic.Message
 }
 
 function toAnthropicTools(tools: ToolDefinition[]): Anthropic.Tool[] {
-  return tools.map((tool) => ({
+  return tools.map((tool, index) => ({
     name: tool.name,
     description: tool.description,
     input_schema: tool.parameters as Anthropic.Tool.InputSchema,
+    // Tools and system prompt are identical on every step; cache them.
+    ...(index === tools.length - 1 ? { cache_control: { type: "ephemeral" as const } } : {}),
   }));
 }
 
@@ -60,7 +62,13 @@ export function createAnthropicPlanner(apiKey: string, model: string): Planner {
     label: `Anthropic ${model}`,
     async run({ system, messages, tools, signal, onText }) {
       const stream = client.messages.stream(
-        { model, max_tokens: 8000, system, tools: toAnthropicTools(tools), messages: toAnthropicMessages(messages) },
+        {
+          model,
+          max_tokens: 8000,
+          system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
+          tools: toAnthropicTools(tools),
+          messages: toAnthropicMessages(messages),
+        },
         { signal },
       );
       stream.on("text", onText);

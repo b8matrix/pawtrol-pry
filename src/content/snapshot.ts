@@ -182,7 +182,29 @@ function attributesOf(element: Element): ElementAttrs | undefined {
   }
   const rect = element.getBoundingClientRect();
   if (!(rect.top < innerHeight && rect.bottom > 0)) attrs.offscreen = "true";
+  const row = element.closest(ROW_SELECTOR);
+  if (row) {
+    if (isUnreadRow(element, row)) attrs.unread = "true";
+    else if (hasBoldText(element)) attrs.bold = "true";
+  }
   return Object.keys(attrs).length > 0 ? attrs : undefined;
+}
+
+const ROW_SELECTOR = "tr, [role=row], li, [role=listitem], [role=option], [role=article]";
+
+/** Lists that announce unread rows to screen readers; the model cannot see styling otherwise. */
+function isUnreadRow(element: Element, row: Element): boolean {
+  const label = `${element.getAttribute("aria-label") ?? ""} ${row.getAttribute("aria-label") ?? ""}`;
+  return /\bunread\b/i.test(label);
+}
+
+function hasBoldText(element: Element): boolean {
+  const candidates = [element, ...Array.from(element.querySelectorAll("span, b, strong, div")).slice(0, 6)];
+  return candidates.some((node) => {
+    if (!(node as HTMLElement).innerText?.trim()) return false;
+    const weight = Number(getComputedStyle(node).fontWeight);
+    return weight >= 600;
+  });
 }
 
 function valueOf(element: Element): string | undefined {
@@ -208,9 +230,23 @@ function mainText(): string {
 }
 
 const inViewport = (rect: DOMRect) => rect.top < innerHeight && rect.bottom > 0;
+const inMain = (element: Element) => element.closest("main, [role=main]") !== null;
 
-export function takeSnapshot(): PageSnapshot {
+export interface SnapshotOptions {
+  /** Keep only elements whose name or value contains this text. */
+  filter?: string;
+  /** Skip this many matching elements (paging through large pages). */
+  offset?: number;
+  /** Page size when paging; defaults to MAX_ELEMENTS. */
+  limit?: number;
+}
+
+export function takeSnapshot(options: SnapshotOptions = {}): PageSnapshot {
   registry = [];
+  const needle = options.filter?.trim().toLowerCase() ?? "";
+  const offset = Math.max(0, Math.floor(options.offset ?? 0));
+  const limit = Math.min(MAX_ELEMENTS, Math.max(1, Math.floor(options.limit ?? MAX_ELEMENTS)));
+  let matched = 0;
   const elements: PageElement[] = [];
   // Order: on-screen first, then dialogs, then text inputs, then reading order.
   const candidates = Array.from(document.querySelectorAll(INTERACTIVE_SELECTOR))
@@ -227,16 +263,22 @@ export function takeSnapshot(): PageSnapshot {
       const ia = isTextInput(a) ? 0 : 1;
       const ib = isTextInput(b) ? 0 : 1;
       if (ia !== ib) return ia - ib;
+      // Main content (mail rows, results, products) before headers and side navigation.
+      const ma = inMain(a) ? 0 : 1;
+      const mb = inMain(b) ? 0 : 1;
+      if (ma !== mb) return ma - mb;
       return ra.top - rb.top || ra.left - rb.left;
     });
 
   for (const element of candidates) {
-    if (elements.length >= MAX_ELEMENTS) break;
     const name = accessibleName(element);
     const role = roleOf(element);
     const value = valueOf(element);
     const fillable = role === "textbox" || role === "select" || role === "combobox" || role === "searchbox" || role === "password";
     if (!name && !value && !fillable) continue;
+    if (needle && !`${name} ${value ?? ""}`.toLowerCase().includes(needle)) continue;
+    matched++;
+    if (matched <= offset || elements.length >= limit) continue;
     const id = registry.push(element) - 1;
     elements.push({ id, role, name, value, attrs: attributesOf(element) });
   }
@@ -246,12 +288,50 @@ export function takeSnapshot(): PageSnapshot {
     title: document.title,
     elements,
     text: mainText(),
-    truncated: candidates.length > elements.length,
+    truncated: matched > offset + elements.length,
+    totalElements: matched,
+    offset,
     scroll: {
       y: Math.round(scrollY),
       maxY: Math.max(0, Math.round(document.body.scrollHeight - innerHeight)),
     },
   };
+}
+
+const MAX_EXTRACT_CHARS = 6000;
+
+/**
+ * Visible page text for reading lists, specs and articles. With a query,
+ * only lines mentioning one of its words (plus the line after, which often
+ * holds the price or rating). Raw text: the worker sanitizes it before any
+ * model sees it.
+ */
+export function extractText(query = "", offset = 0): { text: string; nextOffset?: number; total: number } {
+  const full = stripInvisible(document.body.innerText ?? "")
+    .replace(/[ \t]+/g, " ")
+    .replace(/\s*\n\s*/g, "\n")
+    .trim();
+  let source = full;
+  const words = query
+    .toLowerCase()
+    .split(/\s+/)
+    .filter((w) => w.length > 1);
+  if (words.length > 0) {
+    const lines = full.split("\n");
+    const keep = new Set<number>();
+    lines.forEach((line, i) => {
+      const lower = line.toLowerCase();
+      if (words.some((w) => lower.includes(w))) {
+        keep.add(i);
+        if (i + 1 < lines.length) keep.add(i + 1);
+      }
+    });
+    source = [...keep].sort((a, b) => a - b).map((i) => lines[i]).join("\n");
+  }
+  const start = Math.max(0, Math.floor(offset));
+  const text = source.slice(start, start + MAX_EXTRACT_CHARS);
+  const end = start + text.length;
+  return { text, nextOffset: end < source.length ? end : undefined, total: source.length };
 }
 
 /** The live element for an id from the latest snapshot, if it is still attached. */
