@@ -40,6 +40,11 @@ const PROVIDERS = {
     label: "NVIDIA NIM",
     models: ["nvidia/nemotron-3.5-lightning-30b-a3b", "nvidia/nemotron-3-super-120b-a12b", "nvidia/nemotron-3-nano-30b-a3b", "deepseek-ai/deepseek-v4-pro-0813", "qwen/qwq-32b", "meta/llama-3.1-8b-instruct"],
   },
+  gemini: {
+    chip: "Gemini",
+    label: "Google Gemini",
+    models: ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash", "gemini-2.0-flash-thinking-exp", "gemini-1.5-pro", "gemini-1.5-flash"],
+  },
 };
 const DEFAULT_PROVIDER = "ollama";
 
