@@ -43,6 +43,7 @@ interface GeminiStreamChunk {
 
 function toGeminiContents(messages: ConversationMessage[]): GeminiContent[] {
   const contents: GeminiContent[] = [];
+  const callIdToName = new Map<string, string>();
 
   for (const msg of messages) {
     if (msg.role === "user") {
@@ -54,6 +55,7 @@ function toGeminiContents(messages: ConversationMessage[]): GeminiContent[] {
       const parts: GeminiPart[] = [];
       if (msg.text) parts.push({ text: msg.text });
       for (const call of msg.toolCalls) {
+        callIdToName.set(call.id, call.name);
         parts.push({ functionCall: { name: call.name, args: call.input } });
       }
       if (parts.length === 0) parts.push({ text: "(no output)" });
@@ -63,20 +65,76 @@ function toGeminiContents(messages: ConversationMessage[]): GeminiContent[] {
 
     // role === "tool"
     // Gemini expects tool results as a "user" turn with functionResponse parts.
-    const parts: GeminiPart[] = msg.results.map((r) => ({
-      functionResponse: { name: r.id, response: { content: r.content } },
-    }));
+    const parts: GeminiPart[] = msg.results.map((r) => {
+      const functionName = callIdToName.get(r.id) || r.id;
+      return {
+        functionResponse: {
+          name: functionName,
+          response: { content: r.content },
+        },
+      };
+    });
     contents.push({ role: "user", parts });
   }
 
   return contents;
 }
 
+/**
+ * Strips disallowed JSON schema keywords from tool parameters before sending
+ * to the Gemini API. Gemini uses a strict subset of OpenAPI 3.0 schema and
+ * rejects any unknown properties (such as additionalProperties, $schema, etc.)
+ * with an HTTP 400 error.
+ */
+function sanitizeGeminiSchema(schema: Record<string, unknown>): Record<string, unknown> {
+  const ALLOWED_KEYS = new Set([
+    "type",
+    "properties",
+    "required",
+    "description",
+    "enum",
+    "items",
+    "nullable",
+    "format",
+  ]);
+
+  const result: Record<string, unknown> = {};
+
+  for (const [key, value] of Object.entries(schema)) {
+    if (!ALLOWED_KEYS.has(key)) continue;
+
+    if (key === "properties" && value && typeof value === "object" && !Array.isArray(value)) {
+      const sanitizedProps: Record<string, unknown> = {};
+      for (const [propKey, propVal] of Object.entries(value as Record<string, unknown>)) {
+        if (propVal && typeof propVal === "object" && !Array.isArray(propVal)) {
+          sanitizedProps[propKey] = sanitizeGeminiSchema(propVal as Record<string, unknown>);
+        } else {
+          sanitizedProps[propKey] = propVal;
+        }
+      }
+      result[key] = sanitizedProps;
+    } else if (key === "items" && value && typeof value === "object" && !Array.isArray(value)) {
+      result[key] = sanitizeGeminiSchema(value as Record<string, unknown>);
+    } else {
+      result[key] = value;
+    }
+  }
+
+  if (!result.type) {
+    result.type = "object";
+  }
+  if (result.type === "object" && !result.properties) {
+    result.properties = {};
+  }
+
+  return result;
+}
+
 function toGeminiTools(tools: ToolDefinition[]): GeminiFunctionDeclaration[] {
   return tools.map((t) => ({
     name: t.name,
     description: t.description,
-    parameters: t.parameters,
+    parameters: sanitizeGeminiSchema((t.parameters || {}) as Record<string, unknown>),
   }));
 }
 
@@ -177,8 +235,7 @@ export function createGeminiPlanner(apiKey: string, model: string): Planner {
 
       let fullText = "";
       let finishReason: string | undefined;
-      // Gemini doesn't assign unique IDs to function calls; use name as ID.
-      const toolCallMap = new Map<string, { name: string; args: Record<string, unknown> }>();
+      const rawCalls: Array<{ name: string; args: Record<string, unknown> }> = [];
 
       try {
         let buffer = "";
@@ -213,8 +270,7 @@ export function createGeminiPlanner(apiKey: string, model: string): Planner {
                 onText(part.text);
               }
               if (part.functionCall) {
-                const id = part.functionCall.name;
-                toolCallMap.set(id, {
+                rawCalls.push({
                   name: part.functionCall.name,
                   args: part.functionCall.args ?? {},
                 });
@@ -226,8 +282,8 @@ export function createGeminiPlanner(apiKey: string, model: string): Planner {
         if ((error as Error).name !== "AbortError") throw friendlyError(error);
       }
 
-      const toolCalls = Array.from(toolCallMap.entries()).map(([id, call]) => ({
-        id,
+      const toolCalls = rawCalls.map((call, idx) => ({
+        id: `call_${call.name}_${idx}_${Date.now()}`,
         name: call.name,
         input: parseToolInput(call.args),
       }));
