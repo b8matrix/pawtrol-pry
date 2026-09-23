@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 960 404" width="960" height="404" role="img" aria-labelledby="title desc">
+<title id="title">On-device vision</title>
+<desc id="desc">On an ID card drawn on a canvas, PP-OCRv4 finds five text regions and YuNet finds one face. OCR reads twelve digits, the Verhoeff checksum confirms an Aadhaar number, it is masked, the face is blurred, and a second OCR pass confirms nothing is readable before the image may leave.</desc>
+<defs>
+  <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="none" stroke-width="1"/></pattern>
+  <linearGradient id="gridFade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="1"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <mask id="gridMask"><rect width="960" height="404" fill="url(#gridFade)"/></mask>
+  <filter id="soft" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#000" flood-opacity="0.08"/></filter>
+  <filter id="blur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="6"/></filter>
+</defs>
+<style>
+.lbl{font-family:'Barlow Condensed','Avenir Next Condensed','Roboto Condensed','Arial Narrow','Helvetica Neue',Arial,sans-serif;font-weight:700;font-size:11px;letter-spacing:.14em;text-transform:uppercase;fill:#6b6b74}
+.body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;fill:#3f3f46}
+.title{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:20px;font-weight:600;fill:#09090b}
+.mono{font-family:ui-monospace,SFMono-Regular,'SF Mono','JetBrains Mono','Cascadia Mono',Menlo,Consolas,monospace;font-size:13px;fill:#09090b}
+@keyframes b0{0%{opacity:0}7.99%{opacity:0}9%{opacity:1}36%{opacity:1}37%{opacity:0}100%{opacity:0}}.b0{animation:b0 13s infinite}@keyframes b1{0%{opacity:0}9.99%{opacity:0}11%{opacity:1}36%{opacity:1}37%{opacity:0}100%{opacity:0}}.b1{animation:b1 13s infinite}@keyframes b2{0%{opacity:0}11.99%{opacity:0}13%{opacity:1}36%{opacity:1}37%{opacity:0}100%{opacity:0}}.b2{animation:b2 13s infinite}@keyframes b3{0%{opacity:0}13.99%{opacity:0}15%{opacity:1}36%{opacity:1}37%{opacity:0}100%{opacity:0}}.b3{animation:b3 13s infinite}@keyframes b4{0%{opacity:0}15.99%{opacity:0}17%{opacity:1}36%{opacity:1}37%{opacity:0}100%{opacity:0}}.b4{animation:b4 13s infinite}@keyframes b5{0%{opacity:0}17.99%{opacity:0}19%{opacity:1}36%{opacity:1}37%{opacity:0}100%{opacity:0}}.b5{animation:b5 13s infinite}@keyframes read{0%{opacity:0}21.99%{opacity:0}23%{opacity:1}34%{opacity:1}35%{opacity:0}100%{opacity:0}}.read{animation:read 13s infinite}@keyframes idmask{0%{opacity:0}37.99%{opacity:0}40%{opacity:1}92%{opacity:1}94%{opacity:0}100%{opacity:0}}.idmask{animation:idmask 13s infinite}@keyframes fblur{0%{opacity:0}43.99%{opacity:0}46%{opacity:1}92%{opacity:1}94%{opacity:0}100%{opacity:0}}.fblur{animation:fblur 13s infinite}@keyframes fsharp{0%{opacity:1}44%{opacity:1}46%{opacity:0}92%{opacity:0}94%{opacity:1}100%{opacity:1}}.fsharp{animation:fsharp 13s infinite}@keyframes stamp{0%{opacity:0}53.99%{opacity:0}56%{opacity:1}92%{opacity:1}94%{opacity:0}100%{opacity:0}}.stamp{animation:stamp 13s infinite}@keyframes g0{0%{opacity:0}9.99%{opacity:0}11%{opacity:1}92%{opacity:1}93%{opacity:0}100%{opacity:0}}.g0{animation:g0 13s infinite}@keyframes g1{0%{opacity:0}15.99%{opacity:0}17%{opacity:1}92%{opacity:1}93%{opacity:0}100%{opacity:0}}.g1{animation:g1 13s infinite}@keyframes g2{0%{opacity:0}23.99%{opacity:0}25%{opacity:1}92%{opacity:1}93%{opacity:0}100%{opacity:0}}.g2{animation:g2 13s infinite}@keyframes g3{0%{opacity:0}29.99%{opacity:0}31%{opacity:1}92%{opacity:1}93%{opacity:0}100%{opacity:0}}.g3{animation:g3 13s infinite}@keyframes g4{0%{opacity:0}37.99%{opacity:0}39%{opacity:1}92%{opacity:1}93%{opacity:0}100%{opacity:0}}.g4{animation:g4 13s infinite}@keyframes g5{0%{opacity:0}43.99%{opacity:0}45%{opacity:1}92%{opacity:1}93%{opacity:0}100%{opacity:0}}.g5{animation:g5 13s infinite}@keyframes g6{0%{opacity:0}51.99%{opacity:0}53%{opacity:1}92%{opacity:1}93%{opacity:0}100%{opacity:0}}.g6{animation:g6 13s infinite}@keyframes g7{0%{opacity:0}57.99%{opacity:0}59%{opacity:1}92%{opacity:1}93%{opacity:0}100%{opacity:0}}.g7{animation:g7 13s infinite}
+</style>
+<rect x="0.5" y="0.5" width="959" height="403" rx="10" fill="#ffffff" stroke="#d9d9de"/>
+
+<path d="M8 14H20M14 8V20" stroke="#a1a1aa" stroke-width="1"/><path d="M940 14H952M946 8V20" stroke="#a1a1aa" stroke-width="1"/><path d="M8 390H20M14 384V396" stroke="#a1a1aa" stroke-width="1"/><path d="M940 390H952M946 384V396" stroke="#a1a1aa" stroke-width="1"/>
+
+<text x="40" y="48" class="lbl">It reads the screen, not just the code</text>
+<text x="40" y="78" class="title">Text drawn as pixels is found and masked on the device.</text>
+<g filter="url(#soft)"><rect x="40" y="100" width="470" height="280" rx="8" fill="#fafafa" stroke="#d9d9de"/></g>
+<path d="M40 130H510" stroke="#ececef"/>
+<circle cx="56" cy="115" r="4" fill="#d9d9de"/><circle cx="70" cy="115" r="4" fill="#d9d9de"/><circle cx="84" cy="115" r="4" fill="#d9d9de"/>
+<rect x="100" y="107" width="394" height="16" rx="8" fill="#f4f4f5"/>
+<text x="112" y="119" class="mono" style="font-size:10.5px;fill:#6b6b74">kyc.example.in/upload</text>
+<text x="64" y="158" class="body" style="fill:#09090b;font-weight:600">Uploaded ID card</text>
+<rect x="64" y="170" width="300" height="172" rx="8" fill="#f4f4f5" stroke="#d9d9de"/>
+<text x="376" y="184" class="lbl" style="font-size:9px">&lt;canvas&gt;</text>
+<g class="fsharp"><circle cx="110" cy="220" r="30" fill="#c9d3de"/>
+<circle cx="110" cy="214.6" r="10.799999999999999" fill="#9fb0c2"/>
+<path d="M91.4 241.6c3-15 34.199999999999996-15 37.2 0" fill="#9fb0c2"/></g>
+<g class="fblur" filter="url(#blur)"><circle cx="110" cy="220" r="30" fill="#c9d3de"/>
+<circle cx="110" cy="214.6" r="10.799999999999999" fill="#9fb0c2"/>
+<path d="M91.4 241.6c3-15 34.199999999999996-15 37.2 0" fill="#9fb0c2"/></g>
+<text x="156" y="199" class="lbl" style="font-size:10px">Government of India</text>
+<text x="156" y="228" class="body" style="font-size:15px;fill:#09090b;font-weight:600">Priya Sharma</text>
+<text x="156" y="252" class="body" style="font-size:11px">Aadhaar</text>
+<text x="156" y="295" class="mono" style="font-size:19px;letter-spacing:.04em">2345 6789 0124</text>
+<rect class="read" x="152" y="270" width="198" height="38" rx="3" fill="#4a6f9a" fill-opacity="0.18"/>
+<g class="idmask"><rect x="152" y="270" width="198" height="38" rx="3" fill="#18181b"/>
+<text x="160" y="292.5" class="lbl" style="font-size:9px;fill:#a1a1aa">Aadhaar hidden</text></g>
+<rect class="b0" x="74" y="178" width="72" height="84" rx="3" fill="none" stroke="#4a6f9a" stroke-width="1.4" stroke-dasharray="4 3"/><rect class="b1" x="152" y="182" width="158" height="24" rx="3" fill="none" stroke="#4a6f9a" stroke-width="1.4" stroke-dasharray="4 3"/><rect class="b2" x="152" y="210" width="128" height="26" rx="3" fill="none" stroke="#4a6f9a" stroke-width="1.4" stroke-dasharray="4 3"/><rect class="b3" x="152" y="238" width="56" height="22" rx="3" fill="none" stroke="#4a6f9a" stroke-width="1.4" stroke-dasharray="4 3"/><rect class="b4" x="152" y="270" width="198" height="38" rx="3" fill="none" stroke="#4a6f9a" stroke-width="1.4" stroke-dasharray="4 3"/><rect class="b5" x="60" y="140" width="208" height="24" rx="3" fill="none" stroke="#4a6f9a" stroke-width="1.4" stroke-dasharray="4 3"/>
+<g class="stamp"><rect x="270" y="308" width="86" height="24" rx="4" fill="#e9f4ee" stroke="#2f6f4f"/><path d="M280 320l3 3 6-7" fill="none" stroke="#2f6f4f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><text x="296" y="324" class="lbl" style="fill:#2f6f4f">Verified</text></g>
+<g filter="url(#soft)"><rect x="548" y="100" width="372" height="280" rx="8" fill="#fafafa" stroke="#d9d9de"/></g>
+<text x="568" y="130" class="lbl" style="fill:#3f3f46">Offscreen vision pipeline</text>
+<text x="900" y="130" text-anchor="end" class="lbl" style="font-size:9.5px;fill:#4a6f9a">WebGPU · WASM fallback</text>
+<path d="M548 142H920" stroke="#ececef"/>
+<g class="g0"><text x="568" y="164" class="mono" style="font-size:12px;fill:#6b6b74">PP-OCRv4</text>
+<text x="666" y="164" class="mono" style="font-size:12px;fill:#09090b">5 text regions</text></g><g class="g1"><text x="568" y="190" class="mono" style="font-size:12px;fill:#6b6b74">YuNet</text>
+<text x="666" y="190" class="mono" style="font-size:12px;fill:#09090b">1 face</text></g><g class="g2"><text x="568" y="216" class="mono" style="font-size:12px;fill:#6b6b74">OCR</text>
+<text x="666" y="216" class="mono" style="font-size:12px;fill:#09090b">12 digits in the image</text></g><g class="g3"><text x="568" y="242" class="mono" style="font-size:12px;fill:#6b6b74">Checksum</text>
+<text x="666" y="242" class="mono" style="font-size:12px;fill:#09090b">Verhoeff valid: Aadhaar</text></g><g class="g4"><text x="568" y="268" class="mono" style="font-size:12px;fill:#6b6b74">Mask</text>
+<text x="666" y="268" class="mono" style="font-size:12px;fill:#09090b">Aadhaar hidden</text></g><g class="g5"><text x="568" y="294" class="mono" style="font-size:12px;fill:#6b6b74">Blur</text>
+<text x="666" y="294" class="mono" style="font-size:12px;fill:#09090b">face</text></g><g class="g6"><text x="568" y="320" class="mono" style="font-size:12px;fill:#6b6b74">Re-OCR</text>
+<text x="666" y="320" class="mono" style="font-size:12px;fill:#2f6f4f">nothing readable</text></g><g class="g7"><text x="568" y="346" class="mono" style="font-size:12px;fill:#6b6b74">Send gate</text>
+<text x="666" y="346" class="mono" style="font-size:12px;fill:#2f6f4f">verified, may leave</text></g>
+</svg>

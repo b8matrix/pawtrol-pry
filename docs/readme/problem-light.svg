@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 960 436" width="960" height="436" role="img" aria-labelledby="title desc">
+<title id="title">The problem</title>
+<desc id="desc">Without Pawtrol, an AI agent sends the screenshot and page text to a cloud model, including a face photo, an Aadhaar number, a password and an email.</desc>
+<defs>
+  <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="none" stroke-width="1"/></pattern>
+  <linearGradient id="gridFade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="1"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <mask id="gridMask"><rect width="960" height="436" fill="url(#gridFade)"/></mask>
+  <filter id="soft" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#000" flood-opacity="0.08"/></filter>
+  <filter id="blur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="6"/></filter>
+</defs>
+<style>
+.lbl{font-family:'Barlow Condensed','Avenir Next Condensed','Roboto Condensed','Arial Narrow','Helvetica Neue',Arial,sans-serif;font-weight:700;font-size:11px;letter-spacing:.14em;text-transform:uppercase;fill:#6b6b74}
+.body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;fill:#3f3f46}
+.title{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:20px;font-weight:600;fill:#09090b}
+.mono{font-family:ui-monospace,SFMono-Regular,'SF Mono','JetBrains Mono','Cascadia Mono',Menlo,Consolas,monospace;font-size:13px;fill:#09090b}
+@keyframes pk0{0%{opacity:0;transform:translate(0px,0px)}9.99%{opacity:0;transform:translate(0px,0px)}11%{opacity:1;transform:translate(0px,0px)}21%{opacity:1;transform:translate(130px,0px)}22%{opacity:0;transform:translate(130px,0px)}100%{opacity:0;transform:translate(130px,0px)}}.pk0{animation:pk0 11s infinite}@keyframes rc0{0%{opacity:0}21.99%{opacity:0}24%{opacity:1}92%{opacity:1}94%{opacity:0}100%{opacity:0}}.rc0{animation:rc0 11s infinite}@keyframes pk1{0%{opacity:0;transform:translate(0px,0px)}25.99%{opacity:0;transform:translate(0px,0px)}27%{opacity:1;transform:translate(0px,0px)}37%{opacity:1;transform:translate(130px,0px)}38%{opacity:0;transform:translate(130px,0px)}100%{opacity:0;transform:translate(130px,0px)}}.pk1{animation:pk1 11s infinite}@keyframes rc1{0%{opacity:0}37.99%{opacity:0}40%{opacity:1}92%{opacity:1}94%{opacity:0}100%{opacity:0}}.rc1{animation:rc1 11s infinite}@keyframes pk2{0%{opacity:0;transform:translate(0px,0px)}39.99%{opacity:0;transform:translate(0px,0px)}41%{opacity:1;transform:translate(0px,0px)}51%{opacity:1;transform:translate(130px,0px)}52%{opacity:0;transform:translate(130px,0px)}100%{opacity:0;transform:translate(130px,0px)}}.pk2{animation:pk2 11s infinite}@keyframes rc2{0%{opacity:0}51.99%{opacity:0}54%{opacity:1}92%{opacity:1}94%{opacity:0}100%{opacity:0}}.rc2{animation:rc2 11s infinite}@keyframes pk3{0%{opacity:0;transform:translate(0px,0px)}53.99%{opacity:0;transform:translate(0px,0px)}55%{opacity:1;transform:translate(0px,0px)}65%{opacity:1;transform:translate(130px,0px)}66%{opacity:0;transform:translate(130px,0px)}100%{opacity:0;transform:translate(130px,0px)}}.pk3{animation:pk3 11s infinite}@keyframes rc3{0%{opacity:0}65.99%{opacity:0}68%{opacity:1}92%{opacity:1}94%{opacity:0}100%{opacity:0}}.rc3{animation:rc3 11s infinite}@keyframes warn{0%{opacity:0}69.99%{opacity:0}72%{opacity:1}92%{opacity:1}94%{opacity:0}100%{opacity:0}}.warn{animation:warn 11s infinite}
+</style>
+<rect x="0.5" y="0.5" width="959" height="435" rx="10" fill="#ffffff" stroke="#d9d9de"/>
+
+<path d="M8 14H20M14 8V20" stroke="#a1a1aa" stroke-width="1"/><path d="M940 14H952M946 8V20" stroke="#a1a1aa" stroke-width="1"/><path d="M8 422H20M14 416V428" stroke="#a1a1aa" stroke-width="1"/><path d="M940 422H952M946 416V428" stroke="#a1a1aa" stroke-width="1"/>
+
+<text x="40" y="48" class="lbl" style="fill:#b0442a">Without Pawtrol</text>
+<text x="40" y="78" class="title">A normal AI agent sends whatever it sees to the cloud.</text>
+<g filter="url(#soft)"><rect x="40" y="104" width="380" height="262" rx="8" fill="#fafafa" stroke="#d9d9de"/></g>
+<path d="M40 134H420" stroke="#ececef"/>
+<circle cx="56" cy="119" r="4" fill="#d9d9de"/><circle cx="70" cy="119" r="4" fill="#d9d9de"/><circle cx="84" cy="119" r="4" fill="#d9d9de"/>
+<rect x="100" y="111" width="304" height="16" rx="8" fill="#f4f4f5"/>
+<text x="112" y="123" class="mono" style="font-size:10.5px;fill:#6b6b74">bank.example.in/kyc</text>
+<circle cx="84" cy="174" r="24" fill="#c9d3de"/>
+<circle cx="84" cy="169.68" r="8.64" fill="#9fb0c2"/>
+<path d="M69.12 191.28c2.4000000000000004-12 27.36-12 29.759999999999998 0" fill="#9fb0c2"/>
+<text x="120" y="170" class="body" style="fill:#09090b;font-weight:600">Priya Sharma</text>
+<text x="120" y="190" class="body" style="font-size:12px">KYC update</text>
+<text x="60" y="242" class="lbl">Aadhaar</text>
+<rect x="144" y="222" width="256" height="30" rx="4" fill="#ffffff" stroke="#ececef"/>
+<text x="154" y="242" class="mono" style="font-size:12.5px">2345 6789 0124</text><text x="60" y="282" class="lbl">Password</text>
+<rect x="144" y="262" width="256" height="30" rx="4" fill="#ffffff" stroke="#ececef"/>
+<text x="154" y="282" class="mono" style="font-size:12.5px">••••••••</text><text x="60" y="322" class="lbl">Email</text>
+<rect x="144" y="302" width="256" height="30" rx="4" fill="#ffffff" stroke="#ececef"/>
+<text x="154" y="322" class="mono" style="font-size:12.5px">priya.sharma@example.com</text>
+<path d="M430 236H610" stroke="#d9d9de" stroke-dasharray="4 5"/>
+<path d="M604 231l6 5-6 5" fill="none" stroke="#d9d9de"/>
+<text x="438" y="274" class="lbl">screenshot + page text</text>
+<g class="pk0"><rect x="436" y="200" width="54" height="40" rx="3" fill="#fafafa" stroke="#b0442a"/><circle cx="450" cy="216" r="8" fill="#c9d3de"/>
+<circle cx="450" cy="214.56" r="2.88" fill="#9fb0c2"/>
+<path d="M445.04 221.76c0.8-4 9.12-4 9.92 0" fill="#9fb0c2"/><rect x="462" y="210" width="22" height="4" fill="#efc9bd"/><rect x="462" y="218" width="18" height="4" fill="#efc9bd"/></g><g class="pk1"><rect x="432" y="212" width="122.16" height="24" rx="4" fill="#fcefea" stroke="#efc9bd"/>
+<text x="441" y="228" class="mono" style="font-size:12px;fill:#b0442a">2345 6789 0124</text></g><g class="pk2"><rect x="432" y="222" width="70.08" height="24" rx="4" fill="#fcefea" stroke="#efc9bd"/>
+<text x="441" y="238" class="mono" style="font-size:12px;fill:#b0442a">hunter2</text></g><g class="pk3"><rect x="432" y="232" width="196.56" height="24" rx="4" fill="#fcefea" stroke="#efc9bd"/>
+<text x="441" y="248" class="mono" style="font-size:12px;fill:#b0442a">priya.sharma@example.com</text></g>
+<g filter="url(#soft)"><rect x="620" y="118" width="300" height="248" rx="8" fill="#fafafa" stroke="#d9d9de"/></g>
+<path d="M646 152a7 7 0 0 1 2-13.6a9 9 0 0 1 17 1.6a6 6 0 0 1 1 12z" fill="none" stroke="#4a6f9a" stroke-width="1.6" stroke-linejoin="round"/>
+<text x="676" y="150" class="lbl" style="fill:#3f3f46">Cloud AI model</text>
+<text x="642" y="170" class="lbl" style="font-size:9.5px">What it received</text>
+<g class="rc0"><path d="M642 182l6.3 6.3M648.3 182l-6.3 6.3" fill="none" stroke="#b0442a" stroke-width="1.62" stroke-linecap="round"/><text x="660" y="189" class="mono" style="font-size:12.5px;fill:#b0442a">photo of your face</text></g><g class="rc1"><path d="M642 220l6.3 6.3M648.3 220l-6.3 6.3" fill="none" stroke="#b0442a" stroke-width="1.62" stroke-linecap="round"/><text x="660" y="227" class="mono" style="font-size:12.5px;fill:#b0442a">Aadhaar 2345 6789 0124</text></g><g class="rc2"><path d="M642 258l6.3 6.3M648.3 258l-6.3 6.3" fill="none" stroke="#b0442a" stroke-width="1.62" stroke-linecap="round"/><text x="660" y="265" class="mono" style="font-size:12.5px;fill:#b0442a">password hunter2</text></g><g class="rc3"><path d="M642 296l6.3 6.3M648.3 296l-6.3 6.3" fill="none" stroke="#b0442a" stroke-width="1.62" stroke-linecap="round"/><text x="660" y="303" class="mono" style="font-size:12.5px;fill:#b0442a">priya.sharma@example.com</text></g>
+<g class="warn"><rect x="40" y="386" width="880" height="30" rx="4" fill="#fcefea" stroke="#efc9bd"/>
+<text x="56" y="406" class="body" style="font-size:13.5px;fill:#b0442a">The password shows as dots, but the page still holds it, and your face and ID leave in the screenshot.</text></g>
+</svg>

@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 960 372" width="960" height="372" role="img" aria-labelledby="title desc">
+<title id="title">Six privacy layers</title>
+<desc id="desc">Detect, tokenize, redact, mask pixels, verify and a send gate run in order. In the first pass everything passes and the data is sent. In the second pass verification fails and nothing is sent. Every step is written to a hash-chained privacy ledger.</desc>
+<defs>
+  <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="none" stroke-width="1"/></pattern>
+  <linearGradient id="gridFade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="1"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <mask id="gridMask"><rect width="960" height="372" fill="url(#gridFade)"/></mask>
+  <filter id="soft" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#000" flood-opacity="0.08"/></filter>
+  <filter id="blur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="6"/></filter>
+</defs>
+<style>
+.lbl{font-family:'Barlow Condensed','Avenir Next Condensed','Roboto Condensed','Arial Narrow','Helvetica Neue',Arial,sans-serif;font-weight:700;font-size:11px;letter-spacing:.14em;text-transform:uppercase;fill:#6b6b74}
+.body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;fill:#3f3f46}
+.title{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:20px;font-weight:600;fill:#09090b}
+.mono{font-family:ui-monospace,SFMono-Regular,'SF Mono','JetBrains Mono','Cascadia Mono',Menlo,Consolas,monospace;font-size:13px;fill:#09090b}
+@keyframes c0{0%{opacity:0}4%{opacity:0}6%{opacity:1}46%{opacity:1}48%{opacity:0}54%{opacity:0}56%{opacity:1}96%{opacity:1}98%{opacity:0}100%{opacity:0}}.c0{animation:c0 16s infinite}@keyframes c1{0%{opacity:0}10%{opacity:0}12%{opacity:1}46%{opacity:1}48%{opacity:0}60%{opacity:0}62%{opacity:1}96%{opacity:1}98%{opacity:0}100%{opacity:0}}.c1{animation:c1 16s infinite}@keyframes c2{0%{opacity:0}16%{opacity:0}18%{opacity:1}46%{opacity:1}48%{opacity:0}66%{opacity:0}68%{opacity:1}96%{opacity:1}98%{opacity:0}100%{opacity:0}}.c2{animation:c2 16s infinite}@keyframes c3{0%{opacity:0}22%{opacity:0}24%{opacity:1}46%{opacity:1}48%{opacity:0}72%{opacity:0}74%{opacity:1}96%{opacity:1}98%{opacity:0}100%{opacity:0}}.c3{animation:c3 16s infinite}@keyframes c4{0%{opacity:0}28%{opacity:0}30%{opacity:1}46%{opacity:1}48%{opacity:0}78%{opacity:0}80%{opacity:0}96%{opacity:0}98%{opacity:0}100%{opacity:0}}.c4{animation:c4 16s infinite}@keyframes c5{0%{opacity:0}34%{opacity:0}36%{opacity:1}46%{opacity:1}48%{opacity:0}84%{opacity:0}86%{opacity:0}96%{opacity:0}98%{opacity:0}100%{opacity:0}}.c5{animation:c5 16s infinite}@keyframes vfail{0%{opacity:0}77.99%{opacity:0}79%{opacity:1}96%{opacity:1}97%{opacity:0}100%{opacity:0}}.vfail{animation:vfail 16s infinite}@keyframes dot{0%{transform:translate(0px,0px);opacity:0}4%{transform:translate(0px,0px);opacity:1}10%{transform:translate(156px,0px);opacity:1}16%{transform:translate(312px,0px);opacity:1}22%{transform:translate(468px,0px);opacity:1}28%{transform:translate(624px,0px);opacity:1}34%{transform:translate(780px,0px);opacity:1}40%{transform:translate(780px,0px);opacity:1}42%{transform:translate(780px,34px);opacity:1}46%{transform:translate(780px,34px);opacity:0}52%{transform:translate(0px,0px);opacity:0}54%{transform:translate(0px,0px);opacity:1}60%{transform:translate(156px,0px);opacity:1}66%{transform:translate(312px,0px);opacity:1}72%{transform:translate(468px,0px);opacity:1}78%{transform:translate(624px,0px);opacity:1}80%{transform:translate(624px,0px);opacity:1}83%{transform:translate(624px,34px);opacity:1}95%{transform:translate(624px,34px);opacity:0}100%{transform:translate(0px,0px);opacity:0}}.dot{animation:dot 16s infinite}@keyframes sent{0%{opacity:0}41.99%{opacity:0}43%{opacity:1}48%{opacity:1}49%{opacity:0}100%{opacity:0}}.sent{animation:sent 16s infinite}@keyframes blocked{0%{opacity:0}82.99%{opacity:0}84%{opacity:1}96%{opacity:1}97%{opacity:0}100%{opacity:0}}.blocked{animation:blocked 16s infinite}@keyframes l0{0%{opacity:0}3.99%{opacity:0}5%{opacity:1}96%{opacity:1}97%{opacity:0}100%{opacity:0}}.l0{animation:l0 16s infinite}@keyframes l1{0%{opacity:0}9.99%{opacity:0}11%{opacity:1}96%{opacity:1}97%{opacity:0}100%{opacity:0}}.l1{animation:l1 16s infinite}@keyframes l2{0%{opacity:0}15.99%{opacity:0}17%{opacity:1}96%{opacity:1}97%{opacity:0}100%{opacity:0}}.l2{animation:l2 16s infinite}@keyframes l3{0%{opacity:0}21.99%{opacity:0}23%{opacity:1}96%{opacity:1}97%{opacity:0}100%{opacity:0}}.l3{animation:l3 16s infinite}@keyframes l4{0%{opacity:0}27.99%{opacity:0}29%{opacity:1}96%{opacity:1}97%{opacity:0}100%{opacity:0}}.l4{animation:l4 16s infinite}@keyframes l5{0%{opacity:0}33.99%{opacity:0}35%{opacity:1}96%{opacity:1}97%{opacity:0}100%{opacity:0}}.l5{animation:l5 16s infinite}@keyframes l6{0%{opacity:0}41.99%{opacity:0}43%{opacity:1}96%{opacity:1}97%{opacity:0}100%{opacity:0}}.l6{animation:l6 16s infinite}@keyframes l7{0%{opacity:0}53.99%{opacity:0}55%{opacity:1}96%{opacity:1}97%{opacity:0}100%{opacity:0}}.l7{animation:l7 16s infinite}@keyframes l8{0%{opacity:0}59.99%{opacity:0}61%{opacity:1}96%{opacity:1}97%{opacity:0}100%{opacity:0}}.l8{animation:l8 16s infinite}@keyframes l9{0%{opacity:0}65.99%{opacity:0}67%{opacity:1}96%{opacity:1}97%{opacity:0}100%{opacity:0}}.l9{animation:l9 16s infinite}@keyframes l10{0%{opacity:0}71.99%{opacity:0}73%{opacity:1}96%{opacity:1}97%{opacity:0}100%{opacity:0}}.l10{animation:l10 16s infinite}@keyframes l11{0%{opacity:0}77.99%{opacity:0}79%{opacity:1}96%{opacity:1}97%{opacity:0}100%{opacity:0}}.l11{animation:l11 16s infinite}@keyframes l12{0%{opacity:0}82.99%{opacity:0}84%{opacity:1}96%{opacity:1}97%{opacity:0}100%{opacity:0}}.l12{animation:l12 16s infinite}
+</style>
+<rect x="0.5" y="0.5" width="959" height="371" rx="10" fill="#ffffff" stroke="#d9d9de"/>
+
+<path d="M8 14H20M14 8V20" stroke="#a1a1aa" stroke-width="1"/><path d="M940 14H952M946 8V20" stroke="#a1a1aa" stroke-width="1"/><path d="M8 358H20M14 352V364" stroke="#a1a1aa" stroke-width="1"/><path d="M940 358H952M946 352V364" stroke="#a1a1aa" stroke-width="1"/>
+
+<text x="40" y="48" class="lbl">Every step, every time</text>
+<text x="40" y="78" class="title">Six checks run on the device before anything reaches a model.</text>
+<rect x="24" y="108" width="140" height="104" rx="6" fill="#fafafa" stroke="#d9d9de"/>
+<g class="c0"><rect x="24" y="108" width="140" height="104" rx="6" fill="#eef3f9" stroke="#4a6f9a"/></g>
+<text x="38" y="134" class="mono" style="font-size:11px;fill:#6b6b74">01</text>
+<text x="38" y="158" class="lbl" style="font-size:13px;fill:#09090b">Detect</text>
+<text x="38" y="180" class="body" style="font-size:11.5px">DOM, patterns,</text>
+<text x="38" y="196" class="body" style="font-size:11.5px">checksums</text><rect x="180" y="108" width="140" height="104" rx="6" fill="#fafafa" stroke="#d9d9de"/>
+<g class="c1"><rect x="180" y="108" width="140" height="104" rx="6" fill="#eef3f9" stroke="#4a6f9a"/></g>
+<text x="194" y="134" class="mono" style="font-size:11px;fill:#6b6b74">02</text>
+<text x="194" y="158" class="lbl" style="font-size:13px;fill:#09090b">Tokenize</text>
+<text x="194" y="180" class="body" style="font-size:11.5px">values become</text>
+<text x="194" y="196" class="body" style="font-size:11.5px">&lt;ID_1&gt;, &lt;CARD_1&gt;</text><rect x="336" y="108" width="140" height="104" rx="6" fill="#fafafa" stroke="#d9d9de"/>
+<g class="c2"><rect x="336" y="108" width="140" height="104" rx="6" fill="#eef3f9" stroke="#4a6f9a"/></g>
+<text x="350" y="134" class="mono" style="font-size:11px;fill:#6b6b74">03</text>
+<text x="350" y="158" class="lbl" style="font-size:13px;fill:#09090b">Redact</text>
+<text x="350" y="180" class="body" style="font-size:11.5px">anything left over</text>
+<text x="350" y="196" class="body" style="font-size:11.5px">becomes [REDACTED]</text><rect x="492" y="108" width="140" height="104" rx="6" fill="#fafafa" stroke="#d9d9de"/>
+<g class="c3"><rect x="492" y="108" width="140" height="104" rx="6" fill="#eef3f9" stroke="#4a6f9a"/></g>
+<text x="506" y="134" class="mono" style="font-size:11px;fill:#6b6b74">04</text>
+<text x="506" y="158" class="lbl" style="font-size:13px;fill:#09090b">Mask pixels</text>
+<text x="506" y="180" class="body" style="font-size:11.5px">OCR text and faces</text>
+<text x="506" y="196" class="body" style="font-size:11.5px">on the screenshot</text><rect x="648" y="108" width="140" height="104" rx="6" fill="#fafafa" stroke="#d9d9de"/>
+<g class="c4"><rect x="648" y="108" width="140" height="104" rx="6" fill="#eef3f9" stroke="#4a6f9a"/></g>
+<text x="662" y="134" class="mono" style="font-size:11px;fill:#6b6b74">05</text>
+<text x="662" y="158" class="lbl" style="font-size:13px;fill:#09090b">Verify</text>
+<text x="662" y="180" class="body" style="font-size:11.5px">re-read every mask</text>
+<text x="662" y="196" class="body" style="font-size:11.5px">with OCR</text><rect x="804" y="108" width="140" height="104" rx="6" fill="#fafafa" stroke="#d9d9de"/>
+<g class="c5"><rect x="804" y="108" width="140" height="104" rx="6" fill="#eef3f9" stroke="#4a6f9a"/></g>
+<text x="818" y="134" class="mono" style="font-size:11px;fill:#6b6b74">06</text>
+<text x="818" y="158" class="lbl" style="font-size:13px;fill:#09090b">Send gate</text>
+<text x="818" y="180" class="body" style="font-size:11.5px">only verified</text>
+<text x="818" y="196" class="body" style="font-size:11.5px">data may leave</text>
+<g class="vfail"><rect x="648" y="108" width="140" height="104" rx="6" fill="#fcefea" stroke="#b0442a"/>
+<text x="662" y="134" class="mono" style="font-size:11px;fill:#b0442a">05</text>
+<text x="662" y="158" class="lbl" style="font-size:13px;fill:#b0442a">Verify failed</text>
+<text x="662" y="180" class="body" style="font-size:11.5px;fill:#b0442a">a mask could</text>
+<text x="662" y="196" class="body" style="font-size:11.5px;fill:#b0442a">still be read</text></g>
+<path d="M94 246H874" stroke="#d9d9de" stroke-dasharray="2 5"/>
+<circle cx="94" cy="246" r="3" fill="#d9d9de"/><circle cx="250" cy="246" r="3" fill="#d9d9de"/><circle cx="406" cy="246" r="3" fill="#d9d9de"/><circle cx="562" cy="246" r="3" fill="#d9d9de"/><circle cx="718" cy="246" r="3" fill="#d9d9de"/><circle cx="874" cy="246" r="3" fill="#d9d9de"/>
+<g class="dot"><circle cx="94" cy="246" r="7" fill="#4a6f9a" opacity="0.25"/><circle cx="94" cy="246" r="4" fill="#4a6f9a"/></g>
+<g class="sent"><rect x="757.36" y="268" width="178.64" height="26" rx="4" fill="#e9f4ee" stroke="#bfdcca"/><path d="M769.36 281l3 3 6-7" fill="none" stroke="#2f6f4f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><text x="787.36" y="285" class="lbl" style="fill:#2f6f4f">Sent to the model</text></g>
+<g class="blocked"><rect x="597" y="268" width="242" height="26" rx="4" fill="#fcefea" stroke="#efc9bd"/><path d="M609 277l7 7M616 277l-7 7" fill="none" stroke="#b0442a" stroke-width="1.8" stroke-linecap="round"/><text x="627" y="285" class="lbl" style="fill:#b0442a">Nothing sent. Fail closed</text></g>
+<text x="40" y="335" class="lbl">Privacy ledger</text>
+<text x="40" y="351" class="lbl" style="font-size:9px">SHA-256 chain · counts only</text>
+<g class="l0"><rect x="192" y="321" width="20" height="20" rx="3" fill="#f4f4f5" stroke="#c5d4e5"/></g><g class="l1"><path d="M216 331H242" stroke="#d9d9de"/><rect x="242" y="321" width="20" height="20" rx="3" fill="#f4f4f5" stroke="#c5d4e5"/></g><g class="l2"><path d="M266 331H292" stroke="#d9d9de"/><rect x="292" y="321" width="20" height="20" rx="3" fill="#f4f4f5" stroke="#c5d4e5"/></g><g class="l3"><path d="M316 331H342" stroke="#d9d9de"/><rect x="342" y="321" width="20" height="20" rx="3" fill="#f4f4f5" stroke="#c5d4e5"/></g><g class="l4"><path d="M366 331H392" stroke="#d9d9de"/><rect x="392" y="321" width="20" height="20" rx="3" fill="#f4f4f5" stroke="#c5d4e5"/></g><g class="l5"><path d="M416 331H442" stroke="#d9d9de"/><rect x="442" y="321" width="20" height="20" rx="3" fill="#f4f4f5" stroke="#c5d4e5"/></g><g class="l6"><path d="M466 331H492" stroke="#d9d9de"/><rect x="492" y="321" width="20" height="20" rx="3" fill="#e9f4ee" stroke="#2f6f4f"/></g><g class="l7"><path d="M516 331H542" stroke="#d9d9de"/><rect x="542" y="321" width="20" height="20" rx="3" fill="#f4f4f5" stroke="#c5d4e5"/></g><g class="l8"><path d="M566 331H592" stroke="#d9d9de"/><rect x="592" y="321" width="20" height="20" rx="3" fill="#f4f4f5" stroke="#c5d4e5"/></g><g class="l9"><path d="M616 331H642" stroke="#d9d9de"/><rect x="642" y="321" width="20" height="20" rx="3" fill="#f4f4f5" stroke="#c5d4e5"/></g><g class="l10"><path d="M666 331H692" stroke="#d9d9de"/><rect x="692" y="321" width="20" height="20" rx="3" fill="#f4f4f5" stroke="#c5d4e5"/></g><g class="l11"><path d="M716 331H742" stroke="#d9d9de"/><rect x="742" y="321" width="20" height="20" rx="3" fill="#f4f4f5" stroke="#c5d4e5"/></g><g class="l12"><path d="M766 331H792" stroke="#d9d9de"/><rect x="792" y="321" width="20" height="20" rx="3" fill="#fcefea" stroke="#b0442a"/></g>
+</svg>

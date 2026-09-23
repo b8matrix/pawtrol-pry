@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 960 452" width="960" height="452" role="img" aria-labelledby="title desc">
+<title id="title">Architecture</title>
+<desc id="desc">Inside Chrome: the side panel and page launcher, a service worker with the agent loop, token vault and send gate, a content script that reads and acts on the page, an offscreen document that runs on-device vision, a tripwire that watches the page's own network calls, and a hash-chained privacy ledger. Only tokens and verified pixels go to the model provider.</desc>
+<defs>
+  <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="rgba(132,170,214,0.07)" stroke-width="1"/></pattern>
+  <linearGradient id="gridFade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="1"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <mask id="gridMask"><rect width="960" height="452" fill="url(#gridFade)"/></mask>
+  <filter id="soft" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#000" flood-opacity="0.45"/></filter>
+  <filter id="blur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="6"/></filter>
+</defs>
+<style>
+.lbl{font-family:'Barlow Condensed','Avenir Next Condensed','Roboto Condensed','Arial Narrow','Helvetica Neue',Arial,sans-serif;font-weight:700;font-size:11px;letter-spacing:.14em;text-transform:uppercase;fill:#8591a0}
+.body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;fill:#b7c1cc}
+.title{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:20px;font-weight:600;fill:#e7ecf2}
+.mono{font-family:ui-monospace,SFMono-Regular,'SF Mono','JetBrains Mono','Cascadia Mono',Menlo,Consolas,monospace;font-size:13px;fill:#e7ecf2}
+@keyframes flow{0%{stroke-dashoffset:48}100%{stroke-dashoffset:0}}@keyframes flowBack{0%{stroke-dashoffset:0}100%{stroke-dashoffset:48}}.f{animation:flow 1.6s linear infinite}.fb{animation:flowBack 1.6s linear infinite}@keyframes pulse{0%{opacity:.0}50%{opacity:.9}100%{opacity:0}}.pulse{animation:pulse 3s ease-in-out infinite}
+</style>
+<rect x="0.5" y="0.5" width="959" height="451" rx="10" fill="#0d1117" stroke="#2f3945"/>
+<rect x="1" y="1" width="958" height="450" rx="10" fill="url(#grid)" mask="url(#gridMask)"/>
+<path d="M8 14H20M14 8V20" stroke="#5f84ad" stroke-width="1"/><path d="M940 14H952M946 8V20" stroke="#5f84ad" stroke-width="1"/><path d="M8 438H20M14 432V444" stroke="#5f84ad" stroke-width="1"/><path d="M940 438H952M946 432V444" stroke="#5f84ad" stroke-width="1"/>
+
+<text x="40" y="48" class="lbl">Architecture</text>
+<text x="40" y="78" class="title">Everything runs inside Chrome. There is no Pawtrol server.</text>
+<rect x="24" y="100" width="640" height="336" rx="10" fill="none" stroke="#84aad6" stroke-dasharray="6 6" opacity="0.8"/>
+<rect x="40" y="90" width="150" height="20" rx="3" fill="#0d1117"/><text x="48" y="104" class="lbl" style="fill:#84aad6">Your device · Chrome</text>
+<path d="M232 164 C 248 164, 246 244, 262 244" fill="none" stroke="#2f3945" stroke-width="1.2"/><path class="f" d="M232 164 C 248 164, 246 244, 262 244" fill="none" stroke="#84aad6" stroke-width="2" stroke-linecap="round" stroke-dasharray="6 18"/>
+<path d="M232 386 C 248 386, 246 312, 262 312" fill="none" stroke="#2f3945" stroke-width="1.2"/><path class="fb" d="M232 386 C 248 386, 246 312, 262 312" fill="none" stroke="#84aad6" stroke-width="2" stroke-linecap="round" stroke-dasharray="6 18"/>
+<path d="M432 244 C 446 244, 442 168, 456 168" fill="none" stroke="#2f3945" stroke-width="1.2"/><path class="f" d="M432 244 C 446 244, 442 168, 456 168" fill="none" stroke="#84aad6" stroke-width="2" stroke-linecap="round" stroke-dasharray="6 18"/>
+<path d="M456 386 C 442 386, 446 312, 432 312" fill="none" stroke="#2f3945" stroke-width="1.2"/><path class="f" d="M456 386 C 442 386, 446 312, 432 312" fill="none" stroke="#ec997e" stroke-width="2" stroke-linecap="round" stroke-dasharray="6 18"/>
+<path d="M347 334 V 354" fill="none" stroke="#2f3945" stroke-width="1.2"/><path class="f" d="M347 334 V 354" fill="none" stroke="#82c7a0" stroke-width="2" stroke-linecap="round" stroke-dasharray="6 18"/>
+<path d="M432 268 H 712" fill="none" stroke="#2f3945" stroke-width="1.2"/><path class="f" d="M432 268 H 712" fill="none" stroke="#84aad6" stroke-width="2" stroke-linecap="round" stroke-dasharray="6 18"/>
+<path d="M712 290 H 432" fill="none" stroke="#2f3945" stroke-width="1.2"/><path class="f" d="M712 290 H 432" fill="none" stroke="#84aad6" stroke-width="2" stroke-linecap="round" stroke-dasharray="6 18"/>
+<g filter="url(#soft)"><rect x="48" y="128" width="184" height="72" rx="6" fill="#131920" stroke="#2f3945"/></g>
+<text x="62" y="154" class="lbl" style="font-size:12px;fill:#e7ecf2">Side panel · launcher</text>
+<text x="62" y="174" class="body" style="font-size:12px">where you give the task</text><text x="62" y="190" class="body" style="font-size:12px">and approve risky steps</text>
+<g filter="url(#soft)"><rect x="262" y="222" width="170" height="112" rx="6" fill="#172334" stroke="#84aad6"/></g>
+<text x="276" y="248" class="lbl" style="font-size:12px;fill:#84aad6">Service worker</text>
+<text x="276" y="268" class="body" style="font-size:12px">agent loop and tools</text><text x="276" y="284" class="body" style="font-size:12px">token vault</text><text x="276" y="300" class="body" style="font-size:12px">fail-closed send gate</text>
+<rect class="pulse" x="262" y="222" width="170" height="112" rx="6" fill="none" stroke="#84aad6" stroke-width="2"/>
+<g filter="url(#soft)"><rect x="48" y="350" width="184" height="72" rx="6" fill="#131920" stroke="#2f3945"/></g>
+<text x="62" y="376" class="lbl" style="font-size:12px;fill:#e7ecf2">Content script</text>
+<text x="62" y="396" class="body" style="font-size:12px">reads the page and</text><text x="62" y="412" class="body" style="font-size:12px">clicks, types, scrolls</text>
+<g filter="url(#soft)"><rect x="456" y="128" width="184" height="72" rx="6" fill="#131920" stroke="#2f3945"/></g>
+<text x="470" y="154" class="lbl" style="font-size:12px;fill:#e7ecf2">Offscreen vision</text>
+<text x="470" y="174" class="body" style="font-size:12px">PP-OCRv4 + YuNet on</text><text x="470" y="190" class="body" style="font-size:12px">WebGPU, then verify</text>
+<g filter="url(#soft)"><rect x="456" y="350" width="184" height="72" rx="6" fill="#131920" stroke="#2f3945"/></g>
+<text x="470" y="376" class="lbl" style="font-size:12px;fill:#e7ecf2">Tripwire</text>
+<text x="470" y="396" class="body" style="font-size:12px">catches the page's own</text><text x="470" y="412" class="body" style="font-size:12px">leaky network calls</text>
+<g filter="url(#soft)"><rect x="262" y="354" width="170" height="64" rx="6" fill="#131920" stroke="#2f3945"/></g>
+<text x="276" y="380" class="lbl" style="font-size:12px;fill:#e7ecf2">Privacy ledger</text>
+<text x="276" y="400" class="body" style="font-size:12px">hash chain, counts only</text>
+<text x="456" y="260" class="lbl" style="font-size:9.5px;fill:#84aad6">tokens + verified pixels</text>
+<text x="456" y="308" class="lbl" style="font-size:9.5px">tool calls</text>
+<g filter="url(#soft)"><rect x="712" y="150" width="224" height="238" rx="6" fill="#131920" stroke="#2f3945"/></g>
+<text x="726" y="176" class="lbl" style="font-size:12px;fill:#e7ecf2">Model provider</text>
+
+<text x="726" y="196" class="mono" style="font-size:12px;fill:#82c7a0">Ollama (on device)</text><text x="726" y="218" class="mono" style="font-size:12px;fill:#b7c1cc">Anthropic Claude</text><text x="726" y="240" class="mono" style="font-size:12px;fill:#b7c1cc">OpenAI</text><text x="726" y="262" class="mono" style="font-size:12px;fill:#b7c1cc">Google Gemini</text><text x="726" y="284" class="mono" style="font-size:12px;fill:#b7c1cc">Groq</text><text x="726" y="306" class="mono" style="font-size:12px;fill:#b7c1cc">Cerebras</text><text x="726" y="328" class="mono" style="font-size:12px;fill:#b7c1cc">NVIDIA NIM</text><text x="726" y="350" class="mono" style="font-size:12px;fill:#b7c1cc">OpenRouter</text>
+<text x="712" y="412" class="body" style="font-size:12px">With Ollama, nothing leaves the device.</text>
+</svg>

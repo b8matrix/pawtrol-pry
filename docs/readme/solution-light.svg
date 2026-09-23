@@ -1,0 +1,89 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 960 486" width="960" height="486" role="img" aria-labelledby="title desc">
+<title id="title">How Pawtrol solves it</title>
+<desc id="desc">Pawtrol swaps the Aadhaar number for the token ID_1 and the name for PII_1, withholds the password and blurs the face. The cloud model only sees tokens and a masked screenshot, answers 'type ID_1 into Search', and Pawtrol types the real number into the page locally.</desc>
+<defs>
+  <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="none" stroke-width="1"/></pattern>
+  <linearGradient id="gridFade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="1"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <mask id="gridMask"><rect width="960" height="486" fill="url(#gridFade)"/></mask>
+  <filter id="soft" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#000" flood-opacity="0.08"/></filter>
+  <filter id="blur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="6"/></filter>
+</defs>
+<style>
+.lbl{font-family:'Barlow Condensed','Avenir Next Condensed','Roboto Condensed','Arial Narrow','Helvetica Neue',Arial,sans-serif;font-weight:700;font-size:11px;letter-spacing:.14em;text-transform:uppercase;fill:#6b6b74}
+.body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;fill:#3f3f46}
+.title{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:20px;font-weight:600;fill:#09090b}
+.mono{font-family:ui-monospace,SFMono-Regular,'SF Mono','JetBrains Mono','Cascadia Mono',Menlo,Consolas,monospace;font-size:13px;fill:#09090b}
+@keyframes v0{0%{opacity:0}11.99%{opacity:0}14%{opacity:1}92%{opacity:1}94%{opacity:0}100%{opacity:0}}.v0{animation:v0 15s infinite}@keyframes v1{0%{opacity:0}15.99%{opacity:0}18%{opacity:1}92%{opacity:1}94%{opacity:0}100%{opacity:0}}.v1{animation:v1 15s infinite}@keyframes v2{0%{opacity:0}19.99%{opacity:0}22%{opacity:1}92%{opacity:1}94%{opacity:0}100%{opacity:0}}.v2{animation:v2 15s infinite}@keyframes v3{0%{opacity:0}23.99%{opacity:0}26%{opacity:1}92%{opacity:1}94%{opacity:0}100%{opacity:0}}.v3{animation:v3 15s infinite}@keyframes p1{0%{opacity:0;transform:translate(0px,0px)}2.99%{opacity:0;transform:translate(0px,0px)}4%{opacity:1;transform:translate(0px,0px)}10%{opacity:1;transform:translate(44px,0px)}11%{opacity:0;transform:translate(44px,0px)}100%{opacity:0;transform:translate(44px,0px)}}.p1{animation:p1 15s infinite}@keyframes p2{0%{opacity:0;transform:translate(0px,0px)}31.99%{opacity:0;transform:translate(0px,0px)}33%{opacity:1;transform:translate(0px,0px)}43%{opacity:1;transform:translate(86px,0px)}44%{opacity:0;transform:translate(86px,0px)}100%{opacity:0;transform:translate(86px,0px)}}.p2{animation:p2 15s infinite}@keyframes p3{0%{opacity:0;transform:translate(0px,0px)}57.99%{opacity:0;transform:translate(0px,0px)}59%{opacity:1;transform:translate(0px,0px)}67%{opacity:1;transform:translate(-86px,0px)}68%{opacity:0;transform:translate(-86px,0px)}100%{opacity:0;transform:translate(-86px,0px)}}.p3{animation:p3 15s infinite}@keyframes p4{0%{opacity:0;transform:translate(0px,0px)}71.99%{opacity:0;transform:translate(0px,0px)}73%{opacity:1;transform:translate(0px,0px)}79%{opacity:1;transform:translate(-44px,0px)}80%{opacity:0;transform:translate(-44px,0px)}100%{opacity:0;transform:translate(-44px,0px)}}.p4{animation:p4 15s infinite}@keyframes sees{0%{opacity:0}43.99%{opacity:0}46%{opacity:1}92%{opacity:1}94%{opacity:0}100%{opacity:0}}.sees{animation:sees 15s infinite}@keyframes plans{0%{opacity:0}51.99%{opacity:0}54%{opacity:1}92%{opacity:1}94%{opacity:0}100%{opacity:0}}.plans{animation:plans 15s infinite}@keyframes resolve{0%{opacity:0}68.99%{opacity:0}71%{opacity:1}92%{opacity:1}94%{opacity:0}100%{opacity:0}}.resolve{animation:resolve 15s infinite}@keyframes typing{0%{transform:scaleX(0)}80%{transform:scaleX(0)}86%{transform:scaleX(1)}95%{transform:scaleX(1)}97%{transform:scaleX(0)}100%{transform:scaleX(0)}}.typing{transform-box:fill-box;transform-origin:left center;animation:typing 15s steps(14,end) infinite}@keyframes done{0%{opacity:0}85.99%{opacity:0}88%{opacity:1}95%{opacity:1}97%{opacity:0}100%{opacity:0}}.done{animation:done 15s infinite}@keyframes st0{0%{opacity:0}0%{opacity:0}1%{opacity:1}30%{opacity:1}31%{opacity:0}100%{opacity:0}}.st0{animation:st0 15s infinite}@keyframes st1{0%{opacity:0}29.99%{opacity:0}31%{opacity:1}52%{opacity:1}53%{opacity:0}100%{opacity:0}}.st1{animation:st1 15s infinite}@keyframes st2{0%{opacity:0}51.99%{opacity:0}53%{opacity:1}70%{opacity:1}71%{opacity:0}100%{opacity:0}}.st2{animation:st2 15s infinite}@keyframes st3{0%{opacity:0}69.99%{opacity:0}71%{opacity:1}97%{opacity:1}98%{opacity:0}100%{opacity:0}}.st3{animation:st3 15s infinite}
+</style>
+<rect x="0.5" y="0.5" width="959" height="485" rx="10" fill="#ffffff" stroke="#d9d9de"/>
+
+<path d="M8 14H20M14 8V20" stroke="#a1a1aa" stroke-width="1"/><path d="M940 14H952M946 8V20" stroke="#a1a1aa" stroke-width="1"/><path d="M8 472H20M14 466V478" stroke="#a1a1aa" stroke-width="1"/><path d="M940 472H952M946 466V478" stroke="#a1a1aa" stroke-width="1"/>
+
+<text x="40" y="48" class="lbl" style="fill:#2f6f4f">With Pawtrol</text>
+<text x="40" y="78" class="title">The AI plans with placeholders. Real values never leave your device.</text>
+<rect x="24" y="104" width="620" height="318" rx="10" fill="none" stroke="#4a6f9a" stroke-dasharray="6 6" opacity="0.8"/>
+<rect x="40" y="94" width="92" height="20" rx="3" fill="#ffffff"/><text x="48" y="108" class="lbl" style="fill:#4a6f9a">Your device</text>
+<g filter="url(#soft)"><rect x="44" y="128" width="250" height="276" rx="8" fill="#fafafa" stroke="#d9d9de"/></g>
+<path d="M44 158H294" stroke="#ececef"/>
+<circle cx="60" cy="143" r="4" fill="#d9d9de"/><circle cx="74" cy="143" r="4" fill="#d9d9de"/><circle cx="88" cy="143" r="4" fill="#d9d9de"/>
+<rect x="104" y="135" width="174" height="16" rx="8" fill="#f4f4f5"/>
+<text x="116" y="147" class="mono" style="font-size:10.5px;fill:#6b6b74">bank.example.in/kyc</text>
+<circle cx="80" cy="192" r="20" fill="#c9d3de"/>
+<circle cx="80" cy="188.4" r="7.199999999999999" fill="#9fb0c2"/>
+<path d="M67.6 206.4c2-10 22.799999999999997-10 24.8 0" fill="#9fb0c2"/>
+<text x="110" y="196" class="body" style="fill:#09090b;font-weight:600;font-size:13px">Priya Sharma</text>
+<text x="60" y="246" class="lbl">Aadhaar</text>
+<rect x="60" y="254" width="218" height="28" rx="4" fill="#ffffff" stroke="#ececef"/>
+<text x="70" y="273" class="mono" style="font-size:12.5px">2345 6789 0124</text>
+<text x="60" y="312" class="lbl">Search</text>
+<rect x="60" y="320" width="218" height="28" rx="4" fill="#ffffff" stroke="#c5d4e5"/>
+<clipPath id="typeClip"><rect class="typing" x="70" y="320" width="140" height="28"/></clipPath>
+<text x="70" y="339" class="mono" style="font-size:12.5px" clip-path="url(#typeClip)">2345 6789 0124</text>
+<g filter="url(#soft)"><rect x="318" y="128" width="304" height="276" rx="8" fill="#fafafa" stroke="#c5d4e5"/></g>
+<text x="336" y="158" class="lbl" style="fill:#4a6f9a">Pawtrol · token vault</text>
+<text x="336" y="180" class="body" style="font-size:12px">Stays in the browser, cleared after every task</text>
+<g class="v0"><text x="336" y="214" class="mono" style="font-size:12px;fill:#3f3f46">2345 6789 0124</text>
+<path d="M468 210h18m-5-4 5 4-5 4" fill="none" stroke="#6b6b74"/><g class=""><rect x="496" y="198" width="62.64" height="24" rx="4" fill="#eef3f9" stroke="#c5d4e5"/>
+<text x="505" y="214" class="mono" style="font-size:12px;fill:#4a6f9a">&lt;ID_1&gt;</text></g></g><g class="v1"><text x="336" y="254" class="mono" style="font-size:12px;fill:#3f3f46">Priya Sharma</text>
+<path d="M468 250h18m-5-4 5 4-5 4" fill="none" stroke="#6b6b74"/><g class=""><rect x="496" y="238" width="70.08" height="24" rx="4" fill="#eef3f9" stroke="#c5d4e5"/>
+<text x="505" y="254" class="mono" style="font-size:12px;fill:#4a6f9a">&lt;PII_1&gt;</text></g></g><g class="v2"><text x="336" y="294" class="mono" style="font-size:12px;fill:#3f3f46">hunter2</text>
+<path d="M468 290h18m-5-4 5 4-5 4" fill="none" stroke="#6b6b74"/><g class=""><rect x="496" y="278" width="77.52" height="24" rx="4" fill="#fcefea" stroke="#efc9bd"/>
+<text x="505" y="294" class="mono" style="font-size:12px;fill:#b0442a">withheld</text></g></g><g class="v3"><text x="336" y="334" class="mono" style="font-size:12px;fill:#3f3f46">face photo</text>
+<path d="M468 330h18m-5-4 5 4-5 4" fill="none" stroke="#6b6b74"/><g class=""><rect x="496" y="318" width="70.08" height="24" rx="4" fill="#e9f4ee" stroke="#bfdcca"/>
+<text x="505" y="334" class="mono" style="font-size:12px;fill:#2f6f4f">blurred</text></g></g>
+<g class="resolve"><rect x="336" y="360" width="268" height="28" rx="4" fill="#e9f4ee" stroke="#bfdcca"/>
+<text x="348" y="379" class="mono" style="font-size:12px;fill:#2f6f4f">&lt;ID_1&gt; → 2345 6789 0124, typed here</text></g>
+<g filter="url(#soft)"><rect x="704" y="152" width="232" height="228" rx="8" fill="#fafafa" stroke="#d9d9de"/></g>
+<path d="M728 184a7 7 0 0 1 2-13.6a9 9 0 0 1 17 1.6a6 6 0 0 1 1 12z" fill="none" stroke="#4a6f9a" stroke-width="1.6" stroke-linejoin="round"/>
+<text x="758" y="182" class="lbl" style="fill:#3f3f46">Cloud AI model</text>
+<g class="sees"><text x="722" y="214" class="lbl" style="font-size:9.5px">It sees</text>
+<g class=""><rect x="722" y="224" width="62.64" height="24" rx="4" fill="#eef3f9" stroke="#c5d4e5"/>
+<text x="731" y="240" class="mono" style="font-size:12px;fill:#4a6f9a">&lt;ID_1&gt;</text></g><g class=""><rect x="792" y="224" width="70.08" height="24" rx="4" fill="#eef3f9" stroke="#c5d4e5"/>
+<text x="801" y="240" class="mono" style="font-size:12px;fill:#4a6f9a">&lt;PII_1&gt;</text></g>
+<rect x="722" y="258" width="70" height="42" rx="3" fill="#ffffff" stroke="#d9d9de"/><circle cx="738" cy="274" r="9" fill="#9fb0c2" filter="url(#blur)"/><rect x="752" y="266" width="32" height="8" fill="#18181b"/><rect x="752" y="280" width="24" height="8" fill="#18181b"/>
+<text x="802" y="276" class="body" style="font-size:11.5px">masked</text><text x="802" y="292" class="body" style="font-size:11.5px">screenshot</text></g>
+<g class="plans"><text x="722" y="330" class="lbl" style="font-size:9.5px">It answers</text>
+<text x="722" y="352" class="mono" style="font-size:12px;fill:#4a6f9a">type &lt;ID_1&gt; into Search</text></g>
+<g class="p1"><rect x="288" y="260" width="122.16" height="24" rx="4" fill="#fcefea" stroke="#efc9bd"/>
+<text x="297" y="276" class="mono" style="font-size:12px;fill:#b0442a">2345 6789 0124</text></g>
+<g class="p2"><rect x="562" y="228" width="122.16" height="24" rx="4" fill="#eef3f9" stroke="#c5d4e5"/>
+<text x="571" y="244" class="mono" style="font-size:12px;fill:#4a6f9a">&lt;ID_1&gt; &lt;PII_1&gt;</text></g>
+<g class="p3"><rect x="674" y="304" width="99.84" height="24" rx="4" fill="#eef3f9" stroke="#c5d4e5"/>
+<text x="683" y="320" class="mono" style="font-size:12px;fill:#4a6f9a">type &lt;ID_1&gt;</text></g>
+<g class="p4"><rect x="298" y="324" width="122.16" height="24" rx="4" fill="#e9f4ee" stroke="#bfdcca"/>
+<text x="307" y="340" class="mono" style="font-size:12px;fill:#2f6f4f">2345 6789 0124</text></g>
+<g class="done"><rect x="704" y="396" width="232" height="30" rx="4" fill="#e9f4ee" stroke="#bfdcca"/><path d="M716 411l3 3 6-7" fill="none" stroke="#2f6f4f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><text x="734" y="416" class="body" style="font-size:12.5px;fill:#2f6f4f">Done. The cloud never saw it.</text></g>
+<g><rect x="40" y="438" width="91.52" height="28" rx="14" fill="#ffffff" stroke="#d9d9de"/>
+<g class="st0"><rect x="40" y="438" width="91.52" height="28" rx="14" fill="#eef3f9" stroke="#4a6f9a"/></g>
+<circle cx="54" cy="452" r="8" fill="#f4f4f5" stroke="#d9d9de"/><text x="54" y="456" text-anchor="middle" class="lbl" style="font-size:10px;fill:#3f3f46">1</text>
+<text x="70" y="456" class="lbl" style="fill:#3f3f46">Detect</text></g><g><rect x="145.51999999999998" y="438" width="162.8" height="28" rx="14" fill="#ffffff" stroke="#d9d9de"/>
+<g class="st1"><rect x="145.51999999999998" y="438" width="162.8" height="28" rx="14" fill="#eef3f9" stroke="#4a6f9a"/></g>
+<circle cx="159.51999999999998" cy="452" r="8" fill="#f4f4f5" stroke="#d9d9de"/><text x="159.51999999999998" y="456" text-anchor="middle" class="lbl" style="font-size:10px;fill:#3f3f46">2</text>
+<text x="175.51999999999998" y="456" class="lbl" style="fill:#3f3f46">Swap for tokens</text></g><g><rect x="322.32" y="438" width="178.64" height="28" rx="14" fill="#ffffff" stroke="#d9d9de"/>
+<g class="st2"><rect x="322.32" y="438" width="178.64" height="28" rx="14" fill="#eef3f9" stroke="#4a6f9a"/></g>
+<circle cx="336.32" cy="452" r="8" fill="#f4f4f5" stroke="#d9d9de"/><text x="336.32" y="456" text-anchor="middle" class="lbl" style="font-size:10px;fill:#3f3f46">3</text>
+<text x="352.32" y="456" class="lbl" style="fill:#3f3f46">Plan in the cloud</text></g><g><rect x="514.96" y="438" width="162.8" height="28" rx="14" fill="#ffffff" stroke="#d9d9de"/>
+<g class="st3"><rect x="514.96" y="438" width="162.8" height="28" rx="14" fill="#eef3f9" stroke="#4a6f9a"/></g>
+<circle cx="528.96" cy="452" r="8" fill="#f4f4f5" stroke="#d9d9de"/><text x="528.96" y="456" text-anchor="middle" class="lbl" style="font-size:10px;fill:#3f3f46">4</text>
+<text x="544.96" y="456" class="lbl" style="fill:#3f3f46">Fill in locally</text></g>
+</svg>

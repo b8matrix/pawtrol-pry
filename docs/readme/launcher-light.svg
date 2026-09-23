@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 960 440" width="960" height="440" role="img" aria-labelledby="title desc">
+<title id="title">The page launcher</title>
+<desc id="desc">A floating paw button on a booking page opens a card. The user types 'Book the earliest slot on Monday'; the agent reads the page, clicks Monday, clicks 9:30 AM, asks the user to allow the booking, and reports it done.</desc>
+<defs>
+  <pattern id="grid" width="24" height="24" patternUnits="userSpaceOnUse"><path d="M24 0H0V24" fill="none" stroke="none" stroke-width="1"/></pattern>
+  <linearGradient id="gridFade" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity="1"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <mask id="gridMask"><rect width="960" height="440" fill="url(#gridFade)"/></mask>
+  <filter id="soft" x="-20%" y="-20%" width="140%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="10" flood-color="#000" flood-opacity="0.08"/></filter>
+  <filter id="blur" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="6"/></filter>
+</defs>
+<style>
+.lbl{font-family:'Barlow Condensed','Avenir Next Condensed','Roboto Condensed','Arial Narrow','Helvetica Neue',Arial,sans-serif;font-weight:700;font-size:11px;letter-spacing:.14em;text-transform:uppercase;fill:#6b6b74}
+.body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;fill:#3f3f46}
+.title{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:20px;font-weight:600;fill:#09090b}
+.mono{font-family:ui-monospace,SFMono-Regular,'SF Mono','JetBrains Mono','Cascadia Mono',Menlo,Consolas,monospace;font-size:13px;fill:#09090b}
+@keyframes cursor{0%{transform:translate(460px,240px);opacity:0}2%{transform:translate(460px,240px);opacity:1}9%{transform:translate(872px,354px);opacity:1}50%{transform:translate(872px,354px);opacity:1}56%{transform:translate(832px,300px);opacity:1}62%{transform:translate(832px,300px);opacity:1}70%{transform:translate(892px,360px);opacity:0}100%{transform:translate(892px,360px);opacity:0}}.cursor{animation:cursor 15s infinite}@keyframes ripple{0%{opacity:0;transform:scale(.4)}9.5%{opacity:0;transform:scale(.4)}10%{opacity:.6;transform:scale(.4)}13%{opacity:0;transform:scale(1.4)}100%{opacity:0;transform:scale(1.4)}}.ripple{transform-box:fill-box;transform-origin:center;animation:ripple 15s infinite}@keyframes ripple2{0%{opacity:0;transform:scale(.4)}60.5%{opacity:0;transform:scale(.4)}61%{opacity:.6;transform:scale(.4)}64%{opacity:0;transform:scale(1.4)}100%{opacity:0;transform:scale(1.4)}}.ripple2{transform-box:fill-box;transform-origin:center;animation:ripple2 15s infinite}@keyframes card{0%{opacity:0}10.99%{opacity:0}13%{opacity:1}94%{opacity:1}96%{opacity:0}100%{opacity:0}}.card{animation:card 15s infinite}@keyframes form{0%{opacity:0}10.99%{opacity:0}12%{opacity:1}30%{opacity:1}31%{opacity:0}100%{opacity:0}}.form{animation:form 15s infinite}@keyframes type{0%{transform:scaleX(0)}13%{transform:scaleX(0)}27%{transform:scaleX(1)}94%{transform:scaleX(1)}96%{transform:scaleX(0)}100%{transform:scaleX(0)}}.type{transform-box:fill-box;transform-origin:left center;animation:type 15s steps(31,end) infinite}@keyframes s0{0%{opacity:0}31.99%{opacity:0}32.5%{opacity:1}38%{opacity:1}38.5%{opacity:0}100%{opacity:0}}.s0{animation:s0 15s infinite}@keyframes s1{0%{opacity:0}37.99%{opacity:0}38.5%{opacity:1}44%{opacity:1}44.5%{opacity:0}100%{opacity:0}}.s1{animation:s1 15s infinite}@keyframes s2{0%{opacity:0}43.99%{opacity:0}44.5%{opacity:1}50%{opacity:1}50.5%{opacity:0}100%{opacity:0}}.s2{animation:s2 15s infinite}@keyframes confirm{0%{opacity:0}49.99%{opacity:0}50.5%{opacity:1}62%{opacity:1}62.5%{opacity:0}100%{opacity:0}}.confirm{animation:confirm 15s infinite}@keyframes answer{0%{opacity:0}62.99%{opacity:0}65%{opacity:1}94%{opacity:1}96%{opacity:0}100%{opacity:0}}.answer{animation:answer 15s infinite}@keyframes mon{0%{opacity:0}39.99%{opacity:0}41%{opacity:1}94%{opacity:1}95%{opacity:0}100%{opacity:0}}.mon{animation:mon 15s infinite}@keyframes slot{0%{opacity:0}45.99%{opacity:0}47%{opacity:1}94%{opacity:1}95%{opacity:0}100%{opacity:0}}.slot{animation:slot 15s infinite}@keyframes booked{0%{opacity:0}62.99%{opacity:0}64%{opacity:1}94%{opacity:1}95%{opacity:0}100%{opacity:0}}.booked{animation:booked 15s infinite}@keyframes spin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}@keyframes busy{0%{opacity:0}30.99%{opacity:0}31.5%{opacity:1}63%{opacity:1}63.5%{opacity:0}100%{opacity:0}}.busy{animation:busy 15s infinite}.spinner{transform-box:fill-box;transform-origin:center;animation:spin 1s linear infinite}
+</style>
+<rect x="0.5" y="0.5" width="959" height="439" rx="10" fill="#ffffff" stroke="#d9d9de"/>
+
+<path d="M8 14H20M14 8V20" stroke="#a1a1aa" stroke-width="1"/><path d="M940 14H952M946 8V20" stroke="#a1a1aa" stroke-width="1"/><path d="M8 426H20M14 420V432" stroke="#a1a1aa" stroke-width="1"/><path d="M940 426H952M946 420V432" stroke="#a1a1aa" stroke-width="1"/>
+
+<g filter="url(#soft)"><rect x="40" y="40" width="880" height="360" rx="8" fill="#fafafa" stroke="#d9d9de"/></g>
+<path d="M40 70H920" stroke="#ececef"/>
+<circle cx="56" cy="55" r="4" fill="#d9d9de"/><circle cx="70" cy="55" r="4" fill="#d9d9de"/><circle cx="84" cy="55" r="4" fill="#d9d9de"/>
+<rect x="100" y="47" width="804" height="16" rx="8" fill="#f4f4f5"/>
+<text x="112" y="59" class="mono" style="font-size:10.5px;fill:#6b6b74">clinic.example.in/appointments</text>
+
+<text x="72" y="112" class="title" style="font-size:18px">Book an appointment</text>
+<text x="72" y="134" class="body" style="font-size:12.5px">Choose a day, then a time.</text>
+<rect x="72" y="156" width="80" height="52" rx="6" fill="#ffffff" stroke="#d9d9de"/>
+<rect class="mon" x="72" y="156" width="80" height="52" rx="6" fill="#eef3f9" stroke="#4a6f9a"/>
+<text x="112" y="187" text-anchor="middle" class="lbl" style="fill:#3f3f46">Mon 29</text><rect x="164" y="156" width="80" height="52" rx="6" fill="#ffffff" stroke="#d9d9de"/>
+
+<text x="204" y="187" text-anchor="middle" class="lbl" style="fill:#3f3f46">Tue 30</text><rect x="256" y="156" width="80" height="52" rx="6" fill="#ffffff" stroke="#d9d9de"/>
+
+<text x="296" y="187" text-anchor="middle" class="lbl" style="fill:#3f3f46">Wed 1</text><rect x="348" y="156" width="80" height="52" rx="6" fill="#ffffff" stroke="#d9d9de"/>
+
+<text x="388" y="187" text-anchor="middle" class="lbl" style="fill:#3f3f46">Thu 2</text><rect x="440" y="156" width="80" height="52" rx="6" fill="#ffffff" stroke="#d9d9de"/>
+
+<text x="480" y="187" text-anchor="middle" class="lbl" style="fill:#3f3f46">Fri 3</text>
+<rect x="72" y="232" width="104" height="34" rx="17" fill="#ffffff" stroke="#d9d9de"/>
+<rect class="slot" x="72" y="232" width="104" height="34" rx="17" fill="#eef3f9" stroke="#4a6f9a"/>
+<text x="124" y="254" text-anchor="middle" class="mono" style="font-size:12px;fill:#3f3f46">9:30 AM</text><rect x="188" y="232" width="104" height="34" rx="17" fill="#ffffff" stroke="#d9d9de"/>
+
+<text x="240" y="254" text-anchor="middle" class="mono" style="font-size:12px;fill:#3f3f46">11:00 AM</text><rect x="304" y="232" width="104" height="34" rx="17" fill="#ffffff" stroke="#d9d9de"/>
+
+<text x="356" y="254" text-anchor="middle" class="mono" style="font-size:12px;fill:#3f3f46">2:15 PM</text><rect x="420" y="232" width="104" height="34" rx="17" fill="#ffffff" stroke="#d9d9de"/>
+
+<text x="472" y="254" text-anchor="middle" class="mono" style="font-size:12px;fill:#3f3f46">4:00 PM</text>
+<g class="booked"><rect x="72" y="290" width="236" height="30" rx="4" fill="#e9f4ee" stroke="#bfdcca"/><path d="M84 305l3 3 6-7" fill="none" stroke="#2f6f4f" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><text x="102" y="310" class="body" style="font-size:12.5px;fill:#2f6f4f">Booked: Monday 29, 9:30 AM</text></g>
+<g class="card" filter="url(#soft)"><rect x="548" y="138" width="340" height="196" rx="6" fill="#ffffff" stroke="#d9d9de"/></g>
+<g class="card">
+<text x="562" y="164" class="lbl">Pawtrol · this tab</text>
+<path d="M862 154l8 8m0-8-8 8" stroke="#6b6b74" stroke-width="1.4"/>
+<g class="form"><rect x="562" y="182" width="256" height="34" rx="4" fill="#f4f4f5" stroke="#4a6f9a"/>
+<clipPath id="typeClip2"><rect class="type" x="572" y="182" width="230" height="34"/></clipPath>
+<text x="572" y="204" class="body" style="font-size:12.5px;fill:#09090b" clip-path="url(#typeClip2)">Book the earliest slot on Monday</text>
+<rect x="826" y="182" width="48" height="34" rx="4" fill="#4a6f9a"/><text x="839" y="204" class="lbl" style="fill:#ffffff">Go</text>
+<text x="562" y="242" class="body" style="font-size:11.5px;fill:#6b6b74">Pawtrol takes control of this tab.</text>
+<text x="562" y="258" class="body" style="font-size:11.5px;fill:#6b6b74">Personal data is redacted on your device first.</text></g>
+<g class="s0"><rect x="562" y="182" width="312" height="44" rx="4" fill="#f4f4f5"/>
+<text x="574" y="209" class="mono" style="font-size:12.5px">Read the page</text>
+<rect x="802" y="286" width="72" height="32" rx="4" fill="#ffffff" stroke="#d9d9de"/><text x="821" y="307" class="lbl" style="fill:#b0442a">Stop</text></g><g class="s1"><rect x="562" y="182" width="312" height="44" rx="4" fill="#f4f4f5"/>
+<text x="574" y="209" class="mono" style="font-size:12.5px">Click Monday 29</text>
+<rect x="802" y="286" width="72" height="32" rx="4" fill="#ffffff" stroke="#d9d9de"/><text x="821" y="307" class="lbl" style="fill:#b0442a">Stop</text></g><g class="s2"><rect x="562" y="182" width="312" height="44" rx="4" fill="#f4f4f5"/>
+<text x="574" y="209" class="mono" style="font-size:12.5px">Click 9:30 AM</text>
+<rect x="802" y="286" width="72" height="32" rx="4" fill="#ffffff" stroke="#d9d9de"/><text x="821" y="307" class="lbl" style="fill:#b0442a">Stop</text></g>
+<g class="confirm"><rect x="562" y="182" width="312" height="44" rx="4" fill="#f4f4f5"/>
+<text x="574" y="209" class="body" style="font-size:12.5px;fill:#09090b">Allow this? Confirm the booking</text>
+<rect x="718" y="286" width="72" height="32" rx="4" fill="#ffffff" stroke="#d9d9de"/><text x="736" y="307" class="lbl" style="fill:#b0442a">Deny</text>
+<rect x="802" y="286" width="72" height="32" rx="4" fill="#4a6f9a"/><text x="820" y="307" class="lbl" style="fill:#ffffff">Allow</text></g>
+<g class="answer"><rect x="562" y="182" width="312" height="44" rx="4" fill="#f4f4f5"/>
+<text x="574" y="209" class="body" style="font-size:12.5px;fill:#09090b">Done: booked Monday 29 at 9:30 AM.</text>
+<rect x="788" y="286" width="86" height="32" rx="4" fill="#ffffff" stroke="#d9d9de"/><text x="800" y="307" class="lbl" style="fill:#09090b">New task</text></g>
+</g>
+<g filter="url(#soft)"><circle cx="890" cy="370" r="22" fill="#ffffff" stroke="#d9d9de"/></g>
+<g transform="translate(879 359) scale(0.92)" fill="#4a6f9a"><ellipse cx="6.5" cy="10" rx="2" ry="2.6"/><ellipse cx="10" cy="6.5" rx="2" ry="2.6"/><ellipse cx="14" cy="6.5" rx="2" ry="2.6"/><ellipse cx="17.5" cy="10" rx="2" ry="2.6"/><path d="M12 11.5c-3 0-5.5 3.4-5.5 5.6 0 1.6 1.3 2.4 2.8 2.4 1.1 0 1.8-.5 2.7-.5s1.6.5 2.7.5c1.5 0 2.8-.8 2.8-2.4 0-2.2-2.5-5.6-5.5-5.6Z"/></g>
+<g class="busy"><circle class="spinner" cx="890" cy="370" r="26" fill="none" stroke="#4a6f9a" stroke-width="2" stroke-dasharray="120 44"/></g>
+<circle class="ripple" cx="890" cy="370" r="30" fill="#4a6f9a"/>
+<circle class="ripple2" cx="836" cy="304" r="22" fill="#4a6f9a"/>
+<g class="cursor"><path d="M0 0v17l4.5-4.2 3 6.8 2.6-1.1-3-6.6H13z" fill="#09090b" stroke="#ffffff" stroke-width="1.2" stroke-linejoin="round"/></g>
+<rect x="72" y="356" width="289.36" height="26" rx="13" fill="#f4f4f5" stroke="#d9d9de"/>
+<text x="86" y="373" class="lbl" style="fill:#3f3f46">Alt + Shift + P opens it anywhere</text>
+</svg>
