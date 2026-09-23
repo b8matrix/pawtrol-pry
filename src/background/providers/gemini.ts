@@ -164,9 +164,6 @@ function friendlyError(error: unknown): Error {
     if (msg.includes("quota") || msg.includes("429")) {
       return new ProviderError("Gemini rate-limited this request. Wait a moment and retry.");
     }
-    if (msg.includes("404") || msg.includes("not found")) {
-      return new ProviderError("Gemini does not recognise that model id. Pick another in the extension options.");
-    }
     return error;
   }
   return new Error(String(error));
@@ -183,7 +180,9 @@ export function createGeminiPlanner(apiKey: string, model: string): Planner {
     label: `Gemini ${model}`,
 
     async run({ system, messages, tools, signal, onText }): Promise<PlannerResponse> {
-      const url = `${BASE_URL}/models/${model}:streamGenerateContent?key=${apiKey}&alt=sse`;
+      const cleanModel = (model || "").trim().replace(/^models\//, "");
+      const cleanKey = (apiKey || "").trim();
+      const url = `${BASE_URL}/models/${cleanModel}:streamGenerateContent?key=${encodeURIComponent(cleanKey)}&alt=sse`;
 
       const body: Record<string, unknown> = {
         system_instruction: { parts: [{ text: system }] },
@@ -201,7 +200,10 @@ export function createGeminiPlanner(apiKey: string, model: string): Planner {
       try {
         response = await fetch(url, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            "x-goog-api-key": cleanKey,
+          },
           body: JSON.stringify(body),
           signal,
         });
@@ -218,13 +220,13 @@ export function createGeminiPlanner(apiKey: string, model: string): Planner {
           // ignore JSON parse failure on error body
         }
         if (response.status === 401 || response.status === 403) {
-          throw new ProviderError("Gemini rejected your API key. Check it in the extension options.");
+          throw new ProviderError(`Gemini rejected your API key${detail ? ": " + detail : ". Check it in the extension options."}`);
         }
         if (response.status === 429) {
-          throw new ProviderError("Gemini rate-limited this request. Wait a moment and retry.");
+          throw new ProviderError(`Gemini rate-limited this request${detail ? ": " + detail : ". Wait a moment and retry."}`);
         }
         if (response.status === 404) {
-          throw new ProviderError(`Gemini model "${model}" not found. Check the model ID in options.`);
+          throw new ProviderError(`Gemini model "${cleanModel}" not found${detail ? ": " + detail : ". Check the model ID in options or click 'Fetch models'."}`);
         }
         throw new ProviderError(`Gemini API error ${response.status}${detail ? ": " + detail : ""}`);
       }
