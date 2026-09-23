@@ -1,11 +1,12 @@
 import type { ProviderId, Settings } from "../../shared/types";
 import { DEFAULT_SETTINGS } from "../settings";
 import { createAnthropicPlanner } from "./anthropic";
+import { createGeminiPlanner } from "./gemini";
 import { createOllamaPlanner } from "./ollama";
 import { createOpenAICompatiblePlanner, type OpenAICompatibleOptions } from "./openai-compatible";
 import { ProviderError, type Planner } from "./types";
 
-type CompatibleProvider = Exclude<ProviderId, "anthropic" | "ollama">;
+type CompatibleProvider = Exclude<ProviderId, "anthropic" | "ollama" | "gemini">;
 
 const COMPATIBLE: Record<CompatibleProvider, OpenAICompatibleOptions> = {
   openai: {
@@ -47,6 +48,7 @@ export function createPlanner(settings: Settings): Planner {
   if (provider === "ollama") return createOllamaPlanner(model);
   if (!apiKey) throw new ProviderError(`No API key set for ${provider}. Open the extension options and add one.`);
   if (provider === "anthropic") return createAnthropicPlanner(apiKey, model);
+  if (provider === "gemini") return createGeminiPlanner(apiKey, model);
   return createOpenAICompatiblePlanner(apiKey, model, COMPATIBLE[provider]);
 }
 

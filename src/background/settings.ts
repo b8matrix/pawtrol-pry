@@ -2,7 +2,7 @@ import type { Settings } from "../shared/types";
 
 export const DEFAULT_SETTINGS: Settings = {
   provider: "ollama",
-  apiKeys: { anthropic: "", openai: "", openrouter: "", ollama: "", groq: "", nvidia: "" },
+  apiKeys: { anthropic: "", openai: "", openrouter: "", ollama: "", groq: "", nvidia: "", gemini: "" },
   models: {
     anthropic: "claude-opus-5",
     openai: "gpt-5",
@@ -10,6 +10,7 @@ export const DEFAULT_SETTINGS: Settings = {
     ollama: "qwen2.5:1.5b",
     groq: "openai/gpt-oss-20b",
     nvidia: "nvidia/nemotron-3.5-lightning-30b-a3b",
+    gemini: "gemini-2.5-flash",
   },
   maxSteps: 40,
   confirmRisky: true,

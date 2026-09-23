@@ -10,6 +10,7 @@ export const DEFAULT_VISION_MODELS: Record<ProviderId, string> = {
   openrouter: "openai/gpt-4o-mini",
   ollama: "llama3.2-vision",
   anthropic: "claude-sonnet-4-5",
+  gemini: "gemini-2.0-flash",
 };
 
 export const VISION_SUPPORTED: Record<ProviderId, boolean> = {
@@ -19,6 +20,7 @@ export const VISION_SUPPORTED: Record<ProviderId, boolean> = {
   openrouter: true,
   ollama: true,
   anthropic: true,
+  gemini: true,
 };
 
 const CHAT_COMPLETIONS_URL: Partial<Record<ProviderId, string>> = {
@@ -95,6 +97,29 @@ export function buildVisionRequest(
     };
   }
 
+  if (provider === "gemini") {
+    const { mediaType, base64 } = splitDataUrl(redactedDataUrl);
+    const body = {
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { text: prompt },
+            { inline_data: { mime_type: mediaType, data: base64 } },
+          ],
+        },
+      ],
+      generation_config: { max_output_tokens: 300 },
+    };
+    return {
+      provider,
+      url: `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
+      headers: { "content-type": "application/json" },
+      body,
+      bytes: utf8Bytes(JSON.stringify(body)),
+    };
+  }
+
   const url = CHAT_COMPLETIONS_URL[provider];
   if (!url) throw new Error(`Vision is not supported for provider ${provider}`);
   const body = {
@@ -120,6 +145,13 @@ function extractText(provider: ProviderId, json: any): string {
     return (json.content ?? [])
       .filter((block: any) => block.type === "text" && typeof block.text == "string")
       .map((block: any) => block.text)
+      .join("\n")
+      .trim();
+  }
+  if (provider === "gemini") {
+    return ((json.candidates?.[0]?.content?.parts ?? []) as any[])
+      .filter((p: any) => typeof p.text === "string")
+      .map((p: any) => p.text)
       .join("\n")
       .trim();
   }
