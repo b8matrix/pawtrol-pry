@@ -47,6 +47,7 @@ export interface AuditRecord {
   tokens: TokenSummary[];
   redactedCount: number;
   verification?: RedactionVerification;
+  maskedBoxes?: { x: number; y: number; width: number; height: number; kind: string }[];
 }
 
 export interface PriorExchange {
@@ -266,6 +267,7 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
       tokens: vault.getTokenSummary(),
       redactedCount: processed.redactedCount,
       verification,
+      maskedBoxes: processed.maskedBoxes,
     });
   }
 
@@ -278,7 +280,8 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
     auditInFlight = true;
     captureScreenshot()
       .then((capture) => {
-        if (capture && !finished) recordCapture(capture, domDetections);
+        // A capture that finishes after the run still belongs in the audit view.
+        if (capture) recordCapture(capture, domDetections);
       })
       .catch(() => {})
       .finally(() => {

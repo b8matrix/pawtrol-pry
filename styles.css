@@ -1439,6 +1439,113 @@ body.panel {
   color: var(--mute);
 }
 
+/* Inspectable pairs (ui-shell.js) */
+.audit-shots-hint {
+  margin: -2px 0 8px;
+}
+.screenshot-pair[data-inspectable] {
+  padding: 6px;
+  margin-inline: -6px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: zoom-in;
+  transition: border-color 0.15s, background 0.15s;
+}
+.screenshot-pair[data-inspectable]:hover,
+.screenshot-pair[data-inspectable]:focus-visible {
+  background: var(--surface);
+  border-color: var(--accent-line);
+  outline: none;
+}
+.shot-meta {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--mute);
+}
+.shot-meta-open {
+  flex-shrink: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* Screenshot inspector: covers the whole panel */
+.shot-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px var(--gutter) 12px;
+  background: var(--bg);
+  animation: sheet-in 0.2s var(--ease-out);
+}
+.shot-viewer.hidden {
+  display: none;
+}
+.shot-viewer-bar,
+.shot-viewer-foot {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.shot-viewer-modes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1;
+}
+.shot-viewer-note {
+  min-height: 2.8em;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--ink-2, var(--ink));
+}
+.shot-viewer-stage {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  cursor: zoom-in;
+}
+.shot-viewer-stage:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.shot-viewer-stage canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.shot-viewer.zoomed .shot-viewer-stage {
+  cursor: zoom-out;
+}
+.shot-viewer.zoomed .shot-viewer-stage canvas {
+  width: auto;
+  max-width: none;
+}
+.shot-viewer-count {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--mute);
+  font-variant-numeric: tabular-nums;
+}
+.shot-viewer-spacer {
+  flex: 1;
+}
+.shot-viewer .icon-btn:disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
 .detection-list,
 .token-list,
 .rule-list,

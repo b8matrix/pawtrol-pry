@@ -125,7 +125,17 @@ function emitPrivacyAudit(): void {
   const screenshots = auditRecords
     .filter((r) => r.original || r.redacted)
     .slice(-5)
-    .map((r) => ({ original: r.original, redacted: r.redacted, timestamp: r.timestamp }));
+    .map((r) => ({
+      original: r.original,
+      redacted: r.redacted,
+      timestamp: r.timestamp,
+      // Per-shot facts for the screenshot inspector in ui-shell.js.
+      redactedCount: r.redactedCount,
+      labels: [...new Set(r.detections.map((d) => d.label || d.kind))],
+      verified: r.verification ? r.verification.verified : null,
+      regionsChecked: r.verification?.regionsChecked ?? 0,
+      maskedBoxes: r.maskedBoxes ?? null,
+    }));
   const verification = [...auditRecords].reverse().find((r) => r.verification)?.verification;
   emit({
     kind: "privacy-audit",
@@ -253,6 +263,7 @@ async function startRun(task: string, tabId: number): Promise<void> {
   running = true;
   runController = new AbortController();
   runStartedAt = Date.now();
+  const startedAt = runStartedAt;
   auditRecords = [];
   emit({ kind: "status", running: true });
   emit({ kind: "entry", entry: { id: `u-${Date.now()}`, role: "user", text: task } });
@@ -264,7 +275,13 @@ async function startRun(task: string, tabId: number): Promise<void> {
       askConfirm,
       signal: runController.signal,
       captureScreenshot: captureAndProcessScreenshot,
-      recordAudit,
+      recordAudit: (record) => {
+        // Background captures can land after the run ended; drop them only if
+        // a newer run has started, and republish the audit so the panel shows them.
+        if (runStartedAt !== startedAt) return;
+        recordAudit(record);
+        if (!running) emitPrivacyAudit();
+      },
       history: priorExchanges,
     });
   } catch (error) {

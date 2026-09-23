@@ -34,6 +34,8 @@ export interface ProcessedScreenshot {
   verification?: RedactionVerification;
   timings?: PipelineTimings;
   backend?: string;
+  /** Masked or blurred areas in image pixels. */
+  maskedBoxes?: { x: number; y: number; width: number; height: number; kind: string }[];
 }
 
 export interface CapturedScreenshot {

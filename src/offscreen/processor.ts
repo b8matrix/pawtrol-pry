@@ -330,5 +330,6 @@ export async function processScreenshot(
     verification,
     timings,
     backend,
+    maskedBoxes: allRedactedBoxes.map(({ x, y, width, height, kind }) => ({ x, y, width, height, kind: kind ?? "pii" })),
   };
 }

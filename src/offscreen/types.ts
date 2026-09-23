@@ -53,4 +53,6 @@ export interface ProcessedScreenshotResult {
   verification: RedactionVerification;
   timings: PipelineTimings;
   backend: ExecutionBackend;
+  /** Every masked or blurred area, in image pixels (for the audit inspector). */
+  maskedBoxes: { x: number; y: number; width: number; height: number; kind: string }[];
 }
