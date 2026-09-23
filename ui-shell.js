@@ -43,7 +43,7 @@ const PROVIDERS = {
   gemini: {
     chip: "Gemini",
     label: "Google Gemini",
-    models: ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash", "gemini-2.0-flash-thinking-exp", "gemini-1.5-pro", "gemini-1.5-flash"],
+    models: ["gemini-2.0-flash", "gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash-lite", "gemini-2.0-pro-exp-02-05"],
   },
 };
 const DEFAULT_PROVIDER = "ollama";
@@ -282,7 +282,11 @@ function normalizeSettings(raw) {
   // Legacy single-key format used by older builds.
   if (s.apiKey && !apiKeys.anthropic) apiKeys.anthropic = s.apiKey;
   const provider = PROVIDERS[s.provider] ? s.provider : DEFAULT_PROVIDER;
-  return { ...s, provider, apiKeys, models: { ...(s.models ?? {}) } };
+  const models = { ...(s.models ?? {}) };
+  if (models.gemini === "gemini-2.5-flash" || models.gemini === "gemini-2.5-pro") {
+    models.gemini = "gemini-2.0-flash";
+  }
+  return { ...s, provider, apiKeys, models };
 }
 
 async function saveSelection(provider, model) {

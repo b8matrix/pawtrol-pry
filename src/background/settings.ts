@@ -10,7 +10,7 @@ export const DEFAULT_SETTINGS: Settings = {
     ollama: "qwen2.5:1.5b",
     groq: "openai/gpt-oss-20b",
     nvidia: "nvidia/nemotron-3.5-lightning-30b-a3b",
-    gemini: "gemini-2.5-flash",
+    gemini: "gemini-2.0-flash",
   },
   maxSteps: 40,
   confirmRisky: true,
@@ -39,6 +39,9 @@ export function normalizeSettings(stored: unknown): Settings {
   };
   if (rest.apiKey && !settings.apiKeys.anthropic) settings.apiKeys.anthropic = rest.apiKey;
   if (rest.model && !rest.models) settings.models.anthropic = rest.model;
+  if (settings.models.gemini === "gemini-2.5-flash" || settings.models.gemini === "gemini-2.5-pro") {
+    settings.models.gemini = "gemini-2.0-flash";
+  }
   return settings;
 }
 
