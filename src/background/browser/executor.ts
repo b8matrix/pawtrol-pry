@@ -54,6 +54,9 @@ export function browserErrorOf(url: string | undefined): string | undefined {
   return match ? decodeURIComponent(match[1]) : "browser error page";
 }
 
+/** chrome.tabs.sendMessage errors meaning the page unloaded mid-action. */
+const PAGE_UNLOADED = /message channel closed|message port closed|back\/forward cache/i;
+
 const fail = (detail: string, controller: TabController): ExecutionOutcome => ({ result: { ok: false, detail }, controller });
 const succeed = (detail: string, controller: TabController): ExecutionOutcome => ({ result: { ok: true, detail }, controller });
 
@@ -68,7 +71,21 @@ export async function executeAction(controller: TabController, action: ToolActio
         controller,
       );
     }
-    return { result: await controller.act(action), controller };
+    let result: ActionResult;
+    try {
+      result = await controller.act(action);
+    } catch (error) {
+      // A click or submit that loads a new document tears down the content
+      // script before it can reply. That is the action working, not failing.
+      const text = error instanceof Error ? error.message : String(error);
+      if (!PAGE_UNLOADED.test(text)) throw error;
+      await controller.waitForLoad();
+      return succeed("Done. The page navigated.", controller);
+    }
+    // The reply can also arrive just before a navigation starts.
+    const after = await chrome.tabs.get(controller.tabId).catch(() => null);
+    if (after?.status === "loading") await controller.waitForLoad();
+    return { result, controller };
   }
 
   switch (name) {

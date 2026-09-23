@@ -14,6 +14,7 @@ const COMPATIBLE: Record<CompatibleProvider, OpenAICompatibleOptions> = {
     maxTokens: 8000,
     maxTokensParam: "max_completion_tokens",
     streamReasoning: false,
+    includeUsage: true,
   },
   openrouter: {
     displayName: "OpenRouter",
@@ -21,6 +22,7 @@ const COMPATIBLE: Record<CompatibleProvider, OpenAICompatibleOptions> = {
     maxTokens: 8000,
     maxTokensParam: "max_tokens",
     streamReasoning: false,
+    includeUsage: true,
     defaultHeaders: { "HTTP-Referer": "https://github.com/pry/pry-agent", "X-Title": "Pawtrol" },
   },
   groq: {
@@ -30,6 +32,7 @@ const COMPATIBLE: Record<CompatibleProvider, OpenAICompatibleOptions> = {
     maxTokens: 4096,
     maxTokensParam: "max_tokens",
     streamReasoning: false,
+    includeUsage: true,
   },
   nvidia: {
     displayName: "NVIDIA",

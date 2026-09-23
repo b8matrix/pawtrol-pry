@@ -42,6 +42,7 @@ let egressEntryShown = false;
 const pendingConfirms = new Map<string, (approved: boolean) => void>();
 let auditRecords: (AuditRecord & { timestamp: number })[] = [];
 let runStartedAt = 0;
+let lastRunStats: unknown = null;
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
 
@@ -50,13 +51,16 @@ function emit(event: AgentEvent): void {
   if (event.kind === "entry") {
     transcript.push((event as { entry: TranscriptEntry }).entry);
   } else if (event.kind === "patch") {
-    const patch = event as { id: string; text?: string; pending?: boolean };
+    const patch = event as { id: string; text?: string; pending?: boolean; redactedText?: string };
     const entry = transcript.find((e) => e.id === patch.id);
     if (entry) {
       // Assistant narration streams as deltas; everything else is replaced.
       if (patch.text !== undefined) entry.text = entry.role === "assistant" ? entry.text + patch.text : patch.text;
+      if (patch.redactedText !== undefined) entry.redactedText = (entry.redactedText ?? "") + patch.redactedText;
       if (patch.pending !== undefined) entry.pending = patch.pending;
     }
+  } else if (event.kind === "run-stats") {
+    lastRunStats = event.stats;
   } else if (event.kind === "experience") {
     pendingExperience = (event as { experience: Experience }).experience;
   }
@@ -230,7 +234,8 @@ async function learnFromRun(experience: Experience, settings: Settings): Promise
           .map((a) => `${a.tool}${a.success ? "" : "✗"}`)
           .slice(0, 8)
           .join(" → ");
-        const answer = [...transcript].reverse().find((e) => e.role === "assistant")?.text ?? "";
+        const last = [...transcript].reverse().find((e) => e.role === "assistant");
+        const answer = last?.redactedText ?? last?.text ?? "";
         if (steps) {
           await addTrajectory({
             domain: experience.domain,
@@ -263,6 +268,7 @@ async function startRun(task: string, tabId: number): Promise<void> {
   running = true;
   runController = new AbortController();
   runStartedAt = Date.now();
+  lastRunStats = null;
   const startedAt = runStartedAt;
   auditRecords = [];
   emit({ kind: "status", running: true });
@@ -309,10 +315,12 @@ async function startRun(task: string, tabId: number): Promise<void> {
     });
 
     const answer = [...transcript].reverse().find((e) => e.role === "assistant");
-    if (answer?.text) {
+    // Follow-ups go back to the model, so they use the tokenized wording.
+    const answerForModel = answer?.redactedText ?? answer?.text;
+    if (answerForModel) {
       priorExchanges.push({
         task: task.slice(0, PRIOR_TASK_CHARS),
-        answer: answer.text.slice(0, PRIOR_ANSWER_CHARS),
+        answer: answerForModel.slice(0, PRIOR_ANSWER_CHARS),
         timestamp: Date.now(),
       });
       if (priorExchanges.length > MAX_PRIOR_EXCHANGES) priorExchanges.shift();
@@ -378,7 +386,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     }
 
     case "get-state":
-      sendResponse({ transcript, running });
+      sendResponse({ transcript, running, lastRunStats });
       return false;
 
     case "get-history":

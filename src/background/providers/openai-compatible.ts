@@ -3,8 +3,8 @@
 // differing only in the options below.
 
 import OpenAI from "openai";
-import type { ConversationMessage, Planner, StopReason, ToolDefinition } from "./types";
-import { ProviderError, parseToolInput } from "./types";
+import type { ConversationMessage, Planner, StopReason, TokenUsage, ToolDefinition } from "./types";
+import { ProviderError, RateLimitError, parseDurationMs, parseToolInput } from "./types";
 
 export interface OpenAICompatibleOptions {
   displayName: string;
@@ -19,6 +19,8 @@ export interface OpenAICompatibleOptions {
    */
   streamReasoning: boolean;
   defaultHeaders?: Record<string, string>;
+  /** Ask for a final usage chunk (`stream_options.include_usage`). */
+  includeUsage?: boolean;
 }
 
 export function toChatMessages(system: string, messages: ConversationMessage[]): any[] {
@@ -94,8 +96,14 @@ export function friendlyOpenAIError(error: any, displayName: string): Error {
     return new ProviderError(`${displayName} rejected your API key. Open the extension options and check it.`);
   }
   if (error instanceof OpenAI.RateLimitError) {
-    return new ProviderError(
-      `${displayName} rate-limited this request (${status ?? "unknown"}). Wait a moment and retry — or switch to a smaller snapshot model in options.`,
+    const headers = error.headers as Headers | undefined;
+    const retryAfterMs =
+      parseDurationMs(headers?.get?.("retry-after")) ?? parseDurationMs(headers?.get?.("x-ratelimit-reset-tokens")) ?? 10_000;
+    // Groq says so when waiting will not help (daily quota, or a request larger than the per-minute limit).
+    const hopeless = headers?.get?.("x-should-retry") === "false";
+    return new RateLimitError(
+      `${displayName} rate limit: ${truncate(message.replace(/^\d{3}\s*/, ""), 240)}`,
+      hopeless ? Number.POSITIVE_INFINITY : retryAfterMs,
     );
   }
   if (error instanceof OpenAI.NotFoundError) {
@@ -125,6 +133,9 @@ export function createOpenAICompatiblePlanner(apiKey: string, model: string, opt
     baseURL: options.baseURL,
     dangerouslyAllowBrowser: true,
     defaultHeaders: options.defaultHeaders,
+    // The agent loop waits out rate limits itself and says so in the transcript;
+    // the SDK's silent backoff looked like a stalled planner.
+    maxRetries: 0,
   });
 
   return {
@@ -138,6 +149,7 @@ export function createOpenAICompatiblePlanner(apiKey: string, model: string, opt
             messages: toChatMessages(system, messages),
             tools: toChatTools(tools),
             stream: true,
+            ...(options.includeUsage ? { stream_options: { include_usage: true } } : {}),
             [options.maxTokensParam]: options.maxTokens,
           } as any,
           { signal },
@@ -149,11 +161,15 @@ export function createOpenAICompatiblePlanner(apiKey: string, model: string, opt
       let text = "";
       let refusal = "";
       let finishReason: string | undefined;
+      let usage: TokenUsage | undefined;
       const partialCalls = new Map<number, { id: string; name: string; args: string }>();
 
       try {
         for await (const chunk of stream) {
-          const choice = chunk.choices[0];
+          // Standard usage chunk (empty choices), or Groq's x_groq.usage on the last chunk.
+          const reported = chunk.usage ?? chunk.x_groq?.usage;
+          if (reported) usage = { inputTokens: reported.prompt_tokens ?? 0, outputTokens: reported.completion_tokens ?? 0 };
+          const choice = chunk.choices?.[0];
           if (!choice) continue;
           if (choice.finish_reason) finishReason = choice.finish_reason;
           const delta = choice.delta;
@@ -183,8 +199,8 @@ export function createOpenAICompatiblePlanner(apiKey: string, model: string, opt
         .filter(([, call]) => call.name)
         .map(([index, call]) => ({ id: call.id || `call_${index}`, name: call.name, input: parseToolInput(call.args) }));
 
-      if (refusal) return { text: refusal, toolCalls: [], stopReason: "refusal", refusal };
-      return { text, toolCalls, stopReason: toStopReason(finishReason, toolCalls.length > 0) };
+      if (refusal) return { text: refusal, toolCalls: [], stopReason: "refusal", refusal, usage };
+      return { text, toolCalls, stopReason: toStopReason(finishReason, toolCalls.length > 0), usage };
     },
   };
 }

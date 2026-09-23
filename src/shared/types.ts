@@ -125,4 +125,9 @@ export interface TranscriptEntry {
   text: string;
   action?: string;
   pending?: boolean;
+  /**
+   * Assistant text as the model wrote it (tokens, not values). `text` shows the
+   * user their real values; anything fed back to a model must use this instead.
+   */
+  redactedText?: string;
 }

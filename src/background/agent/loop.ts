@@ -17,6 +17,7 @@ import { stripDigitsGluedToTokens, vault, type TokenSummary } from "../privacy/v
 import { DEFAULT_VISION_MODELS, VISION_SUPPORTED, describeRedactedScreenshot } from "../privacy/vision";
 import { createPlanner } from "../providers";
 import type { ConversationMessage, PlannerResponse, ToolResultContent } from "../providers/types";
+import { RateLimitError } from "../providers/types";
 import {
   anySignal,
   byteLength,
@@ -67,6 +68,21 @@ export interface AgentDeps {
 }
 
 const PLANNER_TIMEOUT_MS = 35_000;
+const MAX_RATE_LIMIT_WAITS = 6;
+const MAX_RATE_LIMIT_WAIT_MS = 60_000;
+const MAX_EMPTY_REPLIES = 1;
+
+function abortableSleep(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(done, ms);
+    function done() {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", done);
+      resolve();
+    }
+    signal.addEventListener("abort", done);
+  });
+}
 const LOOP_REPEAT_LIMIT = 3;
 const LOOP_WINDOW = 6;
 const NARRATION_FLUSH_MS = 60;
@@ -138,6 +154,13 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
   let finishedByModel = false;
   let estimatedTokens = 0;
   let errorCount = 0;
+  // Provider-reported usage, for the run-stats event (benchmarks, cost display).
+  let plannerCalls = 0;
+  let toolCallCount = 0;
+  let inputTokens = 0;
+  let outputTokens = 0;
+  let usageReported = false;
+  let emptyReplies = 0;
   let egressBytes = 0;
   let finished = false;
   const memory = new WorkingMemory();
@@ -458,6 +481,20 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
         (countsEgress ? `Egress: ${formatBytes(egressBytes)}. ` : "Local planner: zero egress. ") +
         "Token vault cleared.",
     );
+    emit({
+      kind: "run-stats",
+      stats: {
+        planner: planner.label,
+        plannerCalls,
+        toolCalls: toolCallCount,
+        inputTokens: usageReported ? inputTokens : null,
+        outputTokens: usageReported ? outputTokens : null,
+        estimatedTokens,
+        durationMs: Date.now() - startedAt,
+        finishedByModel,
+        errorCount,
+      },
+    });
     const experience: Experience = {
       id: `exp-${startedAt}`,
       timestamp: startedAt,
@@ -548,19 +585,25 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
       }
     }
 
-    // Stream narration to the panel in small redacted batches.
+    // Stream narration to the panel in small batches. The user sees their real
+    // values (this never leaves the device); redactedText keeps the model's
+    // tokenized wording for anything that goes back to a model.
     const narrationId = nextEntryId();
     let narrationStarted = false;
     let narrationBuffer = "";
     let narrationTimer: ReturnType<typeof setInterval> | null = null;
-    const flushNarration = () => {
-      if (narrationBuffer.length === 0) return;
-      const text = vault.redactValues(narrationBuffer);
-      narrationBuffer = "";
-      if (narrationStarted) emit({ kind: "patch", id: narrationId, text });
+    const flushNarration = (final = false) => {
+      // Hold back a token cut in half by the stream ("<PII_") until it completes.
+      const cut = final ? -1 : narrationBuffer.search(/<[A-Z_]*\d*$/);
+      const ready = cut >= 0 ? narrationBuffer.slice(0, cut) : narrationBuffer;
+      if (ready.length === 0) return;
+      narrationBuffer = cut >= 0 ? narrationBuffer.slice(cut) : "";
+      const redactedText = vault.redactValues(ready);
+      const text = vault.resolveAll(redactedText);
+      if (narrationStarted) emit({ kind: "patch", id: narrationId, text, redactedText });
       else {
         narrationStarted = true;
-        emit({ kind: "entry", entry: { id: narrationId, role: "assistant", text } });
+        emit({ kind: "entry", entry: { id: narrationId, role: "assistant", text, redactedText } });
       }
     };
     const onText = (delta: string) => {
@@ -590,7 +633,7 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
     }
 
     const stallMessage = `The planner (${planner.label}) did not respond within ${Math.round(PLANNER_TIMEOUT_MS / 1000)}s. The provider may be overloaded or the network stalled.`;
-    const callPlanner = (attempt: AbortController) =>
+    const callOnce = (attempt: AbortController) =>
       withTimeout(
         planner.run({
           system: systemPrompt,
@@ -603,6 +646,21 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
         stallMessage,
         () => attempt.abort(),
       );
+    // Rate limits (common on free tiers) are waited out, visibly, instead of failing the run.
+    const callPlanner = async (attempt: AbortController): Promise<PlannerResponse> => {
+      for (let waits = 0; ; waits++) {
+        try {
+          return await callOnce(waits === 0 ? attempt : new AbortController());
+        } catch (err) {
+          if (!(err instanceof RateLimitError) || waits >= MAX_RATE_LIMIT_WAITS || signal.aborted) throw err;
+          // A daily quota or an oversized request will not clear in time; say so now.
+          if (err.retryAfterMs > MAX_RATE_LIMIT_WAIT_MS) throw err;
+          const waitMs = Math.max(err.retryAfterMs, 1000);
+          system(`${planner.label} rate limit reached. Waiting ${Math.ceil(waitMs / 1000)}s before continuing…`);
+          await abortableSleep(waitMs, signal);
+        }
+      }
+    };
 
     // Last line of defense: re-redact any vault value that slipped into context.
     for (const message of messages) {
@@ -625,7 +683,8 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
         return;
       }
       const message = err instanceof Error ? err.message : String(err);
-      if (!isRetryablePlannerError(message)) {
+      // Rate limits were already waited out (or cannot be) inside callPlanner.
+      if (err instanceof RateLimitError || !isRetryablePlannerError(message)) {
         errorCount++;
         error(message);
         finish();
@@ -648,19 +707,35 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
         return;
       }
     } finally {
-      flushNarration();
+      flushNarration(true);
       if (narrationTimer !== null) {
         clearInterval(narrationTimer);
         narrationTimer = null;
       }
     }
 
+    plannerCalls++;
+    toolCallCount += response.toolCalls.length;
+    if (response.usage) {
+      usageReported = true;
+      inputTokens += response.usage.inputTokens;
+      outputTokens += response.usage.outputTokens;
+    }
     messages.push({ role: "assistant", text: response.text, toolCalls: response.toolCalls });
     if (response.stopReason === "refusal") {
       errorCount++;
       error(`The model declined this request (${response.refusal ?? "unspecified"}).`);
       finish();
       return;
+    }
+    if (response.toolCalls.length === 0 && !response.text.trim() && emptyReplies < MAX_EMPTY_REPLIES) {
+      // Reasoning models sometimes spend the turn thinking and return nothing.
+      emptyReplies++;
+      messages.push({
+        role: "user",
+        content: "Your last reply was empty. Continue the task: call a tool, or give your final answer as text.",
+      });
+      continue;
     }
     if (response.toolCalls.length === 0) {
       finishedByModel = true;

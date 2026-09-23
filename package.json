@@ -11,6 +11,7 @@
     "test": "vitest run",
     "e2e": "node tests/e2e/smoke.mjs",
     "test:vision": "node tests/e2e/vision-verification.mjs",
+    "bench": "node bench/agent/run.mjs",
     "check": "npm run typecheck && npm test && npm run build"
   },
   "dependencies": {

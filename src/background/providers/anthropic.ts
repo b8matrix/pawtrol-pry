@@ -89,6 +89,13 @@ export function createAnthropicPlanner(apiKey: string, model: string): Planner {
         text,
         toolCalls,
         stopReason: toStopReason(final.stop_reason),
+        usage: {
+          inputTokens:
+            final.usage.input_tokens +
+            (final.usage.cache_read_input_tokens ?? 0) +
+            (final.usage.cache_creation_input_tokens ?? 0),
+          outputTokens: final.usage.output_tokens,
+        },
         refusal:
           final.stop_reason === "refusal"
             ? ((final as { stop_details?: { category?: string } }).stop_details?.category ?? "unspecified")

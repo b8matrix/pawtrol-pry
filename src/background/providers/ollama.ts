@@ -1,7 +1,7 @@
 // Local Ollama planner via the native /api/chat NDJSON stream. Nothing leaves
 // the machine, so the loop reports zero egress for this provider.
 
-import type { ConversationMessage, Planner, ToolCall, ToolDefinition } from "./types";
+import type { ConversationMessage, Planner, TokenUsage, ToolCall, ToolDefinition } from "./types";
 import { ProviderError, parseToolInput } from "./types";
 
 const OLLAMA_URL = "http://localhost:11434";
@@ -53,7 +53,7 @@ async function streamChat(
   body: unknown,
   signal: AbortSignal,
   onText: (delta: string) => void,
-): Promise<{ text: string; toolCalls: ToolCall[] }> {
+): Promise<{ text: string; toolCalls: ToolCall[]; usage?: TokenUsage }> {
   const controller = new AbortController();
   const requestTimer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   const onAbort = () => controller.abort();
@@ -74,6 +74,7 @@ async function streamChat(
     if (!reader) throw new ProviderError("Ollama returned no response body.");
 
     let text = "";
+    let usage: TokenUsage | undefined;
     const partialCalls = new Map<number, { id: string; name: string; args: string }>();
     let done = false;
     const decoder = new TextDecoder();
@@ -104,6 +105,9 @@ async function streamChat(
             continue;
           }
           if (parsed.done) {
+            if (typeof parsed.prompt_eval_count == "number" || typeof parsed.eval_count == "number") {
+              usage = { inputTokens: parsed.prompt_eval_count ?? 0, outputTokens: parsed.eval_count ?? 0 };
+            }
             done = true;
             break;
           }
@@ -134,7 +138,7 @@ async function streamChat(
       .sort(([a], [b]) => a - b)
       .filter(([, call]) => call.name)
       .map(([index, call]) => ({ id: call.id || `call_${index}`, name: call.name, input: parseToolInput(call.args) }));
-    return { text, toolCalls };
+    return { text, toolCalls, usage };
   } finally {
     clearTimeout(requestTimer);
     signal.removeEventListener("abort", onAbort);
@@ -158,9 +162,10 @@ export function createOllamaPlanner(model: string): Planner {
         options: { num_ctx: OLLAMA_NUM_CTX },
         keep_alive: "30m",
       };
-      const finish = (result: { text: string; toolCalls: ToolCall[] }) => ({
+      const finish = (result: { text: string; toolCalls: ToolCall[]; usage?: TokenUsage }) => ({
         text: result.text,
         toolCalls: result.toolCalls,
+        usage: result.usage,
         stopReason: result.toolCalls.length > 0 ? ("tool_use" as const) : ("end_turn" as const),
       });
 
