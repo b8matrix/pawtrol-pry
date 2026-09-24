@@ -8,7 +8,14 @@ const LEDGER_KEY = "pry-privacy-ledger";
 const MAX_ENTRIES = 500;
 const GENESIS_HASH = "0".repeat(64);
 
-export type LedgerEntryType = "snapshot" | "detection" | "tokenize" | "redact" | "action" | "verification";
+export type LedgerEntryType =
+  | "snapshot"
+  | "detection"
+  | "tokenize"
+  | "redact"
+  | "action"
+  | "verification"
+  | "egress-block";
 
 export interface LedgerEntry {
   seq: number;
@@ -65,6 +72,11 @@ async function append(type: LedgerEntryType, data: Record<string, unknown>): Pro
     await saveLedger(state);
     return entry;
   });
+}
+
+/** The egress gate stopped a request. Labels and a count only, never values. */
+export function logEgressBlock(labels: string[]) {
+  return append("egress-block", { labels: [...new Set(labels)], count: labels.length });
 }
 
 export function logSnapshot(url: string, title: string, elementCount: number) {

@@ -2,6 +2,7 @@
 // "[REDACTED]" pass for anything that could not be tokenized.
 
 import { isLuhnValid, isValidAadhaar } from "../../shared/checksums";
+import { EXTRA_INDIAN_IDS, PASSPORT } from "../../shared/indian-ids";
 import type { Detection, DetectionKind, PageElement, PageSnapshot } from "../../shared/types";
 
 interface LabeledPattern {
@@ -47,7 +48,7 @@ const INDIAN_ID_TEXT_PATTERNS: LabeledPattern[] = [
 
 const OTHER_ID_TEXT_PATTERNS: LabeledPattern[] = [
   { pattern: /\b\d{3}-\d{2}-\d{4}\b/, label: "SSN" },
-  { pattern: /\b[A-Z]{1,2}\d{6,8}\b/, label: "Possible passport number" },
+  { pattern: PASSPORT, label: "Possible passport number" },
 ];
 
 const CARD_NUMBER = /\b(?:\d{4}[\s-]?){3}\d{4}\b/;
@@ -147,6 +148,7 @@ export function detectTextPII(text: string): TextDetectionResult {
       };
     }),
     ...OTHER_ID_TEXT_PATTERNS.map((p): TextPattern => ({ pattern: p.pattern, kind: "id_number", label: p.label })),
+    ...EXTRA_INDIAN_IDS.map((p): TextPattern => ({ ...p, kind: "id_number" })),
     { pattern: EMAIL, kind: "credential", label: "Email address" },
     { pattern: INDIAN_PHONE, kind: "credential", label: "Phone number" },
   ];

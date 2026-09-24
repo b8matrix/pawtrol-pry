@@ -47,6 +47,25 @@ export function isValidAadhaar(value: string): boolean {
   return verhoeffValid(digits);
 }
 
+const GSTIN_CHARS = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+/**
+ * GSTIN: 2-digit state code (01–38, or 97/99 for special registrations),
+ * the holder's PAN, an entity digit, "Z", and a mod-36 check character.
+ */
+export function isValidGstin(value: string): boolean {
+  const gstin = value.toUpperCase();
+  if (!/^\d{2}[A-Z]{5}\d{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(gstin)) return false;
+  const state = Number(gstin.slice(0, 2));
+  if (!((state >= 1 && state <= 38) || state === 97 || state === 99)) return false;
+  let sum = 0;
+  for (let i = 0; i < 14; i++) {
+    const product = GSTIN_CHARS.indexOf(gstin[i]) * (i % 2 === 0 ? 1 : 2);
+    sum += Math.floor(product / 36) + (product % 36);
+  }
+  return GSTIN_CHARS[(36 - (sum % 36)) % 36] === gstin[14];
+}
+
 /** Luhn check. Accepts digits separated by spaces or hyphens only. */
 export function isLuhnValid(value: string): boolean {
   const compact = value.replace(/[\s-]/g, "");

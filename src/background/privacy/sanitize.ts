@@ -4,8 +4,8 @@
 
 import type { Detection, DetectionKind, PageSnapshot } from "../../shared/types";
 import { detectContextualPII, toDetections } from "./contextual";
-import { detectSnapshotPII, redactDetections } from "./detectors";
-import { vault } from "./vault";
+import { detectSnapshotPII, detectTextPII, redactDetections, TOKEN_EXACT } from "./detectors";
+import { replaceValue, vault } from "./vault";
 
 export interface LearningFilters {
   /** "<kind>:<method>" pairs that learned rules say are false positives here. */
@@ -75,7 +75,43 @@ export function sanitizeSnapshot(snapshot: PageSnapshot, filters: LearningFilter
   };
 }
 
-const DETECTION_LABELS: Partial<Record<DetectionKind, string>> = {
+/**
+ * Identifiers inside field values and element names. The legacy pipeline only
+ * scanned page text, so an Aadhaar typed or prefilled into a form field (in a
+ * field not named like a credential) reached the model raw.
+ */
+export function tokenizeFieldValues(result: SanitizeResult, filters: LearningFilters = NO_LEARNING): SanitizeResult {
+  let piiCount = result.piiCount;
+  const detections = [...result.detections];
+  const suppressed = [...result.suppressed];
+  const tokenizeIn = (value: string): string => {
+    let out = value;
+    for (const d of detectTextPII(value).detections) {
+      if (!d.value || TOKEN_EXACT.test(d.value) || !out.includes(d.value)) continue;
+      if (filters.fpKeys.has(`${d.kind}:regex`)) {
+        suppressed.push({ kind: d.kind, method: "regex", confidence: d.confidence, value: d.value });
+        continue;
+      }
+      out = replaceValue(out, d.value, vault.tokenize(d.value, d.kind === "credential" ? "credential" : "id_number"));
+      detections.push({ kind: d.kind, method: "regex", confidence: d.confidence });
+      piiCount++;
+    }
+    return out;
+  };
+  const elements = result.sanitized.elements.map((element) => {
+    const value = element.value ? tokenizeIn(element.value) : element.value;
+    const name = element.name ? tokenizeIn(element.name) : element.name;
+    return value === element.value && name === element.name ? element : { ...element, value, name };
+  });
+  return { ...result, sanitized: { ...result.sanitized, elements }, piiCount, detections, suppressed };
+}
+
+/** Everything the model may see of a page: the legacy pipeline plus field values. */
+export function sanitizeForModel(snapshot: PageSnapshot, filters: LearningFilters = NO_LEARNING): SanitizeResult {
+  return tokenizeFieldValues(sanitizeSnapshot(snapshot, filters), filters);
+}
+
+const DETECTION_LABELS:Partial<Record<DetectionKind, string>> = {
   credential: "Credential (text)",
   id_number: "ID number (text)",
   api_key: "API key",

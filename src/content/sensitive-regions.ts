@@ -3,6 +3,7 @@
 // document masks these on the screenshot before any model can see it.
 
 import { isLuhnValid, isValidAadhaar } from "../shared/checksums";
+import { EXTRA_INDIAN_IDS } from "../shared/indian-ids";
 import { mapRangeToOriginal, stripInvisibleWithMap } from "../shared/text";
 import type { SensitiveRegion } from "../shared/types";
 import { isVisible } from "./snapshot";
@@ -48,6 +49,7 @@ const ID_TEXT_PATTERNS: RegExp[] = [
   /\b\d{3}-\d{2}-\d{4}\b/,
   /\b\d{4}[\s-]?\d{4}[\s-]?\d{4}[\s-]?\d{4}\b/,
   /\b[A-Z]{2}\d{6,8}\b/,
+  ...EXTRA_INDIAN_IDS.map((id) => id.pattern),
 ];
 
 function box(rect: DOMRect) {

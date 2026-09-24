@@ -10,8 +10,16 @@ import { classifyFailure, classifyPageType, extractDomain, kindFromLeakLabel } f
 import type { ActionRecord, Experience, PIIDetectionRecord } from "../learning/experience-memory";
 import { buildSuppressionKeys, getApplicableRules, recommendsLLMOnly } from "../learning/learned-rules";
 import { getLessons, getTrajectories, selectLessons, selectTrajectories } from "../learning/lessons";
-import { logAction, logDetections, logRedaction, logSnapshot, logTokenization, logVerification } from "../privacy/ledger";
-import { labelDetections, sanitizeSnapshot, type DetectionRecord, type LearningFilters } from "../privacy/sanitize";
+import {
+  logAction,
+  logDetections,
+  logEgressBlock,
+  logRedaction,
+  logSnapshot,
+  logTokenization,
+  logVerification,
+} from "../privacy/ledger";
+import { labelDetections, sanitizeForModel, type DetectionRecord, type LearningFilters } from "../privacy/sanitize";
 import type { CapturedScreenshot, RedactionVerification, VisualDetection } from "../privacy/screenshot";
 import { stripDigitsGluedToTokens, vault, type TokenSummary } from "../privacy/vault";
 import {
@@ -21,6 +29,7 @@ import {
   describeRedactedScreenshot,
   shrinkForModel,
 } from "../privacy/vision";
+import { EgressBlockedError, gatePlanner } from "../privacy/egress-gate";
 import { createPlanner } from "../providers";
 import type { ConversationMessage, PlannerResponse, ToolResultContent } from "../providers/types";
 import { RateLimitError } from "../providers/types";
@@ -152,7 +161,18 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
   const smallContext = settings.provider === "groq" || settings.provider === "nvidia" || settings.provider === "cerebras";
   const systemPrompt = isLocal ? COMPACT_SYSTEM_PROMPT : SYSTEM_PROMPT;
   const elementLimit = isLocal ? 25 : smallContext ? 40 : 50;
-  const planner = createPlanner(settings);
+  // Images the on-device pipeline verified; the gate sends no other image.
+  const verifiedImages = new Set<string>();
+  // Per-site policy: banking pages are text-only, no image ever leaves.
+  let textOnlySite = false;
+  const planner = gatePlanner(createPlanner(settings), {
+    redact: (text) => vault.redactValues(text),
+    isVerifiedImage: (image) => verifiedImages.has(image),
+    imagesAllowed: () => !textOnlySite,
+    onBlock: (leaks) => {
+      logEgressBlock(leaks.map((leak) => leak.label)).catch(() => {});
+    },
+  });
   const startedAt = Date.now();
   const countsEgress = settings.provider !== "ollama";
   const apiKey = settings.apiKeys[settings.provider] ?? "";
@@ -222,6 +242,9 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
 
   async function appendVisionObservation(redactedDataUrl: string, text: string): Promise<string> {
     if (!visionEnabled || !apiKey) return text;
+    if (textOnlySite) return `${text}
+
+[Screenshot kept on device: text-only site policy]`;
     const context = snapshot ? formatSnapshot(snapshot) : `URL: ${stripUrlQuery(tab.url ?? "")}`;
     try {
       const observation = await describeRedactedScreenshot(
@@ -277,8 +300,15 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
     const masked = `${processed.redactedCount} sensitive region(s) masked on device`;
     if (signal.aborted) return fail("Stopped.");
 
+    if (textOnlySite) {
+      return fail(
+        "This is a banking site: the privacy policy keeps it text-only, so no screenshot leaves the device. Use the element list and page text.",
+        "Text-only site — screenshot kept on device.",
+      );
+    }
     if (nativeImages) {
       const image = await shrinkForModel(processed.redactedDataUrl);
+      verifiedImages.add(image);
       return {
         ok: true,
         content: `Screenshot of the visible viewport attached (${masked}). Dark bars are redactions; do not try to read them.`,
@@ -327,6 +357,7 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
   snapshot = startsInternal ? undefined : await controller.snapshot();
   let elementsAtStepStart: PageSnapshot["elements"] = [];
   const pageType = classifyPageType(tab.url ?? "", tab.title ?? "", snapshot?.text ?? "");
+  textOnlySite = pageType === "banking";
   const [rules, lessons, trajectories] = await Promise.all([
     getApplicableRules(domain, pageType),
     getLessons(),
@@ -348,7 +379,7 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
   let totalRedacted = 0;
   let lastDomDetections: DetectionRecord[] = [];
 
-  function recordSanitizeOutcome(result: ReturnType<typeof sanitizeSnapshot>) {
+  function recordSanitizeOutcome(result: ReturnType<typeof sanitizeForModel>) {
     for (const d of result.detections) {
       piiDetections.push({ kind: d.kind, method: d.method, outcome: "true_positive", confidence: d.confidence });
     }
@@ -409,7 +440,7 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
 
   /** Page text returned by find_text/extract_text gets the same PII pipeline as snapshots. */
   function sanitizePageText(text: string): string {
-    const result = sanitizeSnapshot(
+    const result = sanitizeForModel(
       { url: tab.url ?? "", title: "", elements: [], text, truncated: false, scroll: { y: 0, maxY: 0 } },
       filters,
     );
@@ -421,7 +452,7 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
 
   if (snapshot) {
     logSnapshot(snapshot.url, snapshot.title, snapshot.elements.length).catch(() => {});
-    const result = sanitizeSnapshot(snapshot, filters);
+    const result = sanitizeForModel(snapshot, filters);
     snapshot = result.sanitized;
     lastDomDetections = result.detections;
     if (result.detections.length > 0) {
@@ -519,7 +550,8 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
       return isRestrictedUrl(current?.url) ? `\n\n${INTERNAL_PAGE_NOTE}` : "";
     }
     const navigated = snapshot && raw.url !== snapshot.url;
-    const sanitized = sanitizeSnapshot(raw, filters);
+    textOnlySite = classifyPageType(raw.url, raw.title, raw.text) === "banking";
+    const sanitized = sanitizeForModel(raw, filters);
     // A filtered or paged read asked for exactly these elements; keep offscreen ones.
     const fitted = fitSnapshot(sanitized.sanitized, elementLimit, smallContext && !paged);
     snapshot = fitted;
@@ -772,18 +804,6 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
       }
     };
 
-    // Last line of defense: re-redact any vault value that slipped into context.
-    for (const message of messages) {
-      if (message.role === "user" && typeof message.content == "string") {
-        message.content = vault.redactValues(message.content);
-      }
-      if (message.role === "tool") {
-        for (const result of message.results) {
-          if (typeof result.content == "string") result.content = vault.redactValues(result.content);
-        }
-      }
-    }
-
     let response: PlannerResponse;
     try {
       response = await callPlanner(new AbortController());
@@ -794,7 +814,7 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
       }
       const message = err instanceof Error ? err.message : String(err);
       // Rate limits were already waited out (or cannot be) inside callPlanner.
-      if (err instanceof RateLimitError || !isRetryablePlannerError(message)) {
+      if (err instanceof EgressBlockedError || err instanceof RateLimitError || !isRetryablePlannerError(message)) {
         errorCount++;
         error(message);
         finish();
@@ -913,7 +933,7 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
         if (!snapshot?.elements.some((e) => e.id === requestedId)) {
           const fresh = await controller.snapshot();
           if (fresh) {
-            snapshot = fitSnapshot(sanitizeSnapshot(fresh, filters).sanitized, elementLimit, smallContext);
+            snapshot = fitSnapshot(sanitizeForModel(fresh, filters).sanitized, elementLimit, smallContext);
           }
           let retargeted = false;
           if (previous && (call.name === "click" || call.name === "type") && snapshot) {

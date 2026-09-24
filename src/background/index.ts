@@ -18,7 +18,8 @@ import { applyReflectionResults, clearLearnedRules, getLearnedRules, getRulesSum
 import { addLessons, addTrajectory, generateLessons, getLessons, getTrajectories } from "./learning/lessons";
 import { reflectOnExperience } from "./learning/reflection";
 import { createEgressWatch, type TripwireAlert } from "./privacy/egress-watch";
-import { getLedgerSummary, logRedaction } from "./privacy/ledger";
+import { gatePlanner } from "./privacy/egress-gate";
+import { getLedgerSummary, logEgressBlock, logRedaction } from "./privacy/ledger";
 import { captureAndProcessScreenshot } from "./privacy/screenshot";
 import { isRestrictedUrl } from "./browser/executor";
 import { launcherMessageFor, type LauncherMessage } from "./launcher";
@@ -278,7 +279,15 @@ async function learnFromRun(experience: Experience, settings: Settings): Promise
           });
         }
       } else {
-        const lessons = await generateLessons(createPlanner(settings), experience);
+        // Reflection is an outgoing request like any other: it goes through the
+        // gate. The run's vault is already cleared, so there is nothing to swap back.
+        const gated = gatePlanner(createPlanner(settings), {
+          redact: (text) => text,
+          isVerifiedImage: () => false,
+          imagesAllowed: () => false,
+          onBlock: (leaks) => logEgressBlock(leaks.map((leak) => leak.label)).catch(() => {}),
+        });
+        const lessons = await generateLessons(gated, experience);
         if (lessons.length > 0) {
           await addLessons(experience.domain, experience.pageType, lessons);
           const bytes = new Blob([JSON.stringify(lessons)]).size;

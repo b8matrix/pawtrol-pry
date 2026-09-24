@@ -1,5 +1,6 @@
 import { isValidAadhaar, isLuhnValid } from "../shared/checksums";
 import { normalizeOcrDigits, stripInvisible } from "../shared/text";
+import { findExtraIndianId } from "../shared/indian-ids";
 import type { SensitiveRegion } from "../shared/types";
 import { boxesIntersect, clampBox } from "./blur";
 import { recognizeText } from "./ocr";
@@ -44,6 +45,8 @@ export function evaluateTextPII(rawText: string): { kind: string; label: string 
     if (isLuhnValid(m[0])) return { kind: "credential", label: "Card number (Luhn ✓)" };
   }
   if (PAN_REGEX.test(text)) return { kind: "id_number", label: "PAN card number" };
+  const extra = findExtraIndianId(text);
+  if (extra) return { kind: "id_number", label: extra.label };
   if (API_KEY_REGEX.test(text)) return { kind: "api_key", label: "API key / token" };
   if (EMAIL_REGEX.test(text)) return { kind: "credential", label: "Email address" };
   if (PHONE_REGEX.test(text)) return { kind: "credential", label: "Phone number" };

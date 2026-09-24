@@ -3,6 +3,7 @@
 // moment a tool call executes locally. The vault lives in worker memory and is
 // cleared at the end of every run.
 
+import { EXTRA_INDIAN_IDS } from "../../shared/indian-ids";
 import type { Detection, PageElement, PageSnapshot } from "../../shared/types";
 
 export type VaultKind = "face" | "credential" | "id_number" | "api_key" | "pii_text";
@@ -99,6 +100,11 @@ export class TokenVault {
     sanitized = sanitized.replace(/\b(?:\d[ -]*?){13,19}\b/g, (m) => (tokenCount++, this.tokenize(m.trim(), "credential")));
     sanitized = sanitized.replace(/\b\d{4}[ -]?\d{4}[ -]?\d{4}\b/g, (m) => (tokenCount++, this.tokenize(m.trim(), "id_number")));
     sanitized = sanitized.replace(/\b[A-Z]{5}[0-9]{4}[A-Z]\b/g, (m) => (tokenCount++, this.tokenize(m, "id_number")));
+    for (const { pattern, validate } of EXTRA_INDIAN_IDS) {
+      sanitized = sanitized.replace(new RegExp(pattern.source, pattern.flags + "g"), (m) =>
+        validate && !validate(m) ? m : (tokenCount++, this.tokenize(m, "id_number")),
+      );
+    }
     sanitized = sanitized.replace(
       /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g,
       (m) => (tokenCount++, this.tokenize(m, "credential")),
