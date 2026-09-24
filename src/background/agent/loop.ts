@@ -20,7 +20,7 @@ import {
   logVerification,
 } from "../privacy/ledger";
 import { labelDetections, sanitizeForModel, type DetectionRecord, type LearningFilters } from "../privacy/sanitize";
-import type { CapturedScreenshot, RedactionVerification, VisualDetection } from "../privacy/screenshot";
+import type { CapturedScreenshot, PipelineTimings, RedactionVerification, VisualDetection } from "../privacy/screenshot";
 import { stripDigitsGluedToTokens, vault, type TokenSummary } from "../privacy/vault";
 import {
   DEFAULT_VISION_MODELS,
@@ -29,7 +29,14 @@ import {
   describeRedactedScreenshot,
   shrinkForModel,
 } from "../privacy/vision";
-import { EgressBlockedError, gatePlanner } from "../privacy/egress-gate";
+import {
+  checkOutgoingText,
+  EgressBlockedError,
+  gatePlanner,
+  payloadMessages,
+  type EgressPayload,
+  type GateOptions,
+} from "../privacy/egress-gate";
 import { createPlanner } from "../providers";
 import type { ConversationMessage, PlannerResponse, ToolResultContent } from "../providers/types";
 import { RateLimitError } from "../providers/types";
@@ -64,6 +71,8 @@ export interface AuditRecord {
   redactedCount: number;
   verification?: RedactionVerification;
   maskedBoxes?: { x: number; y: number; width: number; height: number; kind: string }[];
+  timings?: PipelineTimings;
+  backend?: string;
 }
 
 export interface PriorExchange {
@@ -165,12 +174,33 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
   const verifiedImages = new Set<string>();
   // Per-site policy: banking pages are text-only, no image ever leaves.
   let textOnlySite = false;
-  const planner = gatePlanner(createPlanner(settings), {
+  // Every request that leaves is recorded for the "What the cloud saw" view.
+  let egressStep = 0;
+  function recordEgress(payload: Omit<EgressPayload, "step" | "at" | "localTokens" | "local">) {
+    emit({
+      kind: "egress-payload",
+      payload: { ...payload, step: ++egressStep, at: Date.now(), local: !countsEgress, localTokens: vault.getTokenSummary() },
+    });
+  }
+  const gateOptions: GateOptions = {
     redact: (text) => vault.redactValues(text),
     isVerifiedImage: (image) => verifiedImages.has(image),
     imagesAllowed: () => !textOnlySite,
     onBlock: (leaks) => {
       logEgressBlock(leaks.map((leak) => leak.label)).catch(() => {});
+    },
+  };
+  const basePlanner = createPlanner(settings);
+  const planner = gatePlanner(basePlanner, {
+    ...gateOptions,
+    onSend: (request) => {
+      recordEgress({
+        channel: "planner",
+        model: basePlanner.label,
+        bytes: byteLength(JSON.stringify({ system: request.system, messages: request.messages, tools: request.tools })),
+        system: request.system,
+        messages: payloadMessages(request),
+      });
     },
   });
   const startedAt = Date.now();
@@ -240,6 +270,23 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
 
   let snapshot: PageSnapshot | undefined | null;
 
+  /**
+   * The vision model is a second way out of the device, so it gets the same
+   * check as the planner: vault values swapped back, then a strict re-scan.
+   */
+  async function describeGated(image: string, context: string) {
+    const checked = checkOutgoingText(context, gateOptions);
+    const observation = await describeRedactedScreenshot(settings.provider, visionModel, apiKey, image, checked, signal);
+    recordEgress({
+      channel: "vision",
+      model: observation.model,
+      bytes: observation.bytes,
+      system: "",
+      messages: [{ role: "user", text: checked, image }],
+    });
+    return observation;
+  }
+
   async function appendVisionObservation(redactedDataUrl: string, text: string): Promise<string> {
     if (!visionEnabled || !apiKey) return text;
     if (textOnlySite) return `${text}
@@ -247,14 +294,7 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
 [Screenshot kept on device: text-only site policy]`;
     const context = snapshot ? formatSnapshot(snapshot) : `URL: ${stripUrlQuery(tab.url ?? "")}`;
     try {
-      const observation = await describeRedactedScreenshot(
-        settings.provider,
-        visionModel,
-        apiKey,
-        redactedDataUrl,
-        context,
-        signal,
-      );
+      const observation = await describeGated(redactedDataUrl, context);
       egressBytes += observation.bytes;
       estimatedTokens += Math.ceil(observation.bytes / 4);
       emit({ kind: "egress", bytes: egressBytes });
@@ -322,14 +362,7 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
       .filter(Boolean)
       .join("\n\n");
     try {
-      const observation = await describeRedactedScreenshot(
-        settings.provider,
-        visionModel,
-        apiKey,
-        processed.redactedDataUrl,
-        pageContext,
-        signal,
-      );
+      const observation = await describeGated(processed.redactedDataUrl, pageContext);
       if (countsEgress) {
         egressBytes += observation.bytes;
         estimatedTokens += IMAGE_TOKEN_ESTIMATE;
@@ -417,6 +450,8 @@ export async function runAgent(task: string, tabId: number, deps: AgentDeps): Pr
       redactedCount: processed.redactedCount,
       verification,
       maskedBoxes: processed.maskedBoxes,
+      timings: processed.timings,
+      backend: processed.backend,
     });
   }
 

@@ -8,6 +8,7 @@ import { isLuhnValid, isValidAadhaar, isValidGstin } from "../../shared/checksum
 import { GSTIN } from "../../shared/indian-ids";
 import type { ConversationMessage, Planner, PlannerRequest, PlannerResponse } from "../providers/types";
 import { ProviderError } from "../providers/types";
+import type { TokenSummary } from "./vault";
 
 export interface EgressLeak {
   label: string;
@@ -111,6 +112,60 @@ function sanitizeRequest(request: PlannerRequest, options: GateOptions): string[
     }
   }
   return outgoing;
+}
+
+/** One message of an outgoing request, flattened for the "What the cloud saw" view. */
+export interface EgressMessage {
+  role: "user" | "assistant" | "tool";
+  text: string;
+  /** The verified, redacted image that went with this message, if any. */
+  image?: string;
+}
+
+/** Exactly what left the device in one request. */
+export interface EgressPayload {
+  step: number;
+  at: number;
+  channel: "planner" | "vision";
+  model: string;
+  /** A local model (Ollama): the request never left this machine. */
+  local: boolean;
+  bytes: number;
+  system: string;
+  messages: EgressMessage[];
+  /** Local only, never sent: which real value each token stands for (masked samples). */
+  localTokens?: TokenSummary[];
+}
+
+/** Flatten a request that already passed the gate into plain text per message. */
+export function payloadMessages(request: PlannerRequest): EgressMessage[] {
+  const out: EgressMessage[] = [];
+  for (const message of request.messages) {
+    if (message.role === "user") out.push({ role: "user", text: message.content });
+    else if (message.role === "assistant") {
+      const calls = message.toolCalls.map((call) => `→ ${call.name}(${JSON.stringify(call.input)})`);
+      out.push({ role: "assistant", text: [message.text, ...calls].filter(Boolean).join("\n") });
+    } else {
+      for (const result of message.results) {
+        out.push({ role: "tool", text: result.content, ...(result.image ? { image: result.image } : {}) });
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * The same check for requests that do not go through a planner (the vision
+ * model that describes a screenshot). Returns the redacted text to send.
+ */
+export function checkOutgoingText(text: string, options: Pick<GateOptions, "redact" | "onBlock">): string {
+  const redacted = options.redact(text);
+  const leaks = findLeaks(redacted);
+  if (leaks.length > 0) {
+    options.onBlock?.(leaks);
+    throw new EgressBlockedError(leaks);
+  }
+  return redacted;
 }
 
 export function gatePlanner(planner: Planner, options: GateOptions): Planner {

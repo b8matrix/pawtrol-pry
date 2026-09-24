@@ -60,7 +60,7 @@ describe("egress gate", () => {
 
   test("the error names the kind but never the value", async () => {
     const gated = gatePlanner(recordingPlanner().planner, allowAll);
-    const err = await gated.run(request(`PAN ABCDE1234F`)).catch((e: Error) => e);
+    const err = (await gated.run(request(`PAN ABCDE1234F`)).catch((e: unknown) => e)) as Error;
     expect(err.message).toContain("PAN");
     expect(err.message).not.toContain("ABCDE1234F");
   });

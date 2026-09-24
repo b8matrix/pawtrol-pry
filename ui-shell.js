@@ -796,9 +796,187 @@ function initAuditViewer() {
   $("audit-close")?.addEventListener("click", closeViewer);
 }
 
+// ─── What the cloud saw ────────────────────────────────────────────────
+// Every request that passed the egress gate, exactly as the model received
+// it, next to what stayed on this device (tokens and their masked samples).
+
+const cloud = { payloads: [], selected: null };
+const ROLE_LABELS = { user: "Task and page", assistant: "Model", tool: "Page after the step" };
+
+function escapeHtml(text) {
+  return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}
+
+/** Escaped text with every <TYPE_n> token wrapped so it stands out. */
+function withTokens(text) {
+  return escapeHtml(text).replace(/&lt;([A-Z]+_\d+)&gt;/g, '<span class="tok">&lt;$1&gt;</span>');
+}
+
+function formatBytes(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  const kb = bytes / 1024;
+  return kb < 10 ? `${kb.toFixed(1)} KB` : `${Math.round(kb)} KB`;
+}
+
+function tokensIn(payload) {
+  const found = new Set();
+  const all = [payload.system, ...payload.messages.map((m) => m.text)].join("\n");
+  for (const m of all.matchAll(/<[A-Z]+_\d+>/g)) found.add(m[0]);
+  return found;
+}
+
+function renderCloudSaw() {
+  const body = $("cloud-saw-body");
+  const payloads = cloud.payloads;
+  if (payloads.length === 0) {
+    body.innerHTML = '<p class="empty-sub">Run a task to see every request that left this device, exactly as the model received it.</p>';
+    return;
+  }
+  const payload = payloads.find((p) => p.step === cloud.selected) ?? payloads[payloads.length - 1];
+  const totalBytes = payloads.reduce((sum, p) => sum + p.bytes, 0);
+  const images = payloads.reduce((sum, p) => sum + p.messages.filter((m) => m.image).length, 0);
+  const tokens = tokensIn(payload);
+  const local = payloads.every((p) => p.local);
+  const kept = (payload.localTokens ?? []).filter((t) => tokens.has(t.token));
+
+  const stats = [
+    [payloads.length, payloads.length === 1 ? "request" : "requests"],
+    [formatBytes(totalBytes), local ? "to local model" : "sent"],
+    [tokens.size, "tokens"],
+    [images, images === 1 ? "image" : "images"],
+  ];
+  const chips = payloads
+    .map(
+      (p) =>
+        `<button class="chip${p.step === payload.step ? " active" : ""}" type="button" data-step="${p.step}">` +
+        `${p.step} · ${p.channel === "vision" ? "vision" : "planner"}</button>`,
+    )
+    .join("");
+
+  // The newest two messages are what this step added; older ones start closed.
+  const messages = payload.messages
+    .map((m, i) => {
+      const open = i >= payload.messages.length - 2 ? " open" : "";
+      const image = m.image
+        ? `<figure class="cs-image"><img src="${escapeHtml(m.image)}" alt="Redacted screenshot sent with this step" /><figcaption>Verified redacted image</figcaption></figure>`
+        : "";
+      return (
+        `<details class="cs-msg cs-${m.role}"${open}><summary><span class="label">${ROLE_LABELS[m.role] ?? m.role}</span>` +
+        `<span class="cs-size mono">${formatBytes(new Blob([m.text]).size)}</span></summary>` +
+        `<pre class="cs-text">${withTokens(m.text)}</pre>${image}</details>`
+      );
+    })
+    .join("");
+
+  const localRows = kept.length
+    ? kept
+        .map(
+          (t) =>
+            `<div class="cs-local-row"><span class="tok mono">${escapeHtml(t.token)}</span>` +
+            `<span class="cs-kind">${escapeHtml(t.kind.replace("_", " "))}</span>` +
+            `<span class="cs-sample mono">${escapeHtml(t.sample)}</span></div>`,
+        )
+        .join("")
+    : '<p class="empty-sub">No tokens in this request.</p>';
+
+  body.innerHTML = `
+    <div class="audit-summary">${stats
+      .map(([n, l]) => `<div class="audit-stat"><span class="number">${escapeHtml(n)}</span><span class="label">${l}</span></div>`)
+      .join("")}</div>
+    <h4>Request</h4>
+    <div class="chips cs-steps" role="group" aria-label="Request">${chips}</div>
+    ${local ? '<p class="cs-note cs-local-note">The model runs on this machine, so none of this left the device. This is exactly what it received.</p>' : ""}
+    <h4>${payload.local ? "Given to" : "Sent to"} ${escapeHtml(payload.model)} · ${formatBytes(payload.bytes)}</h4>
+    ${payload.system ? `<details class="cs-msg cs-system"><summary><span class="label">Instructions (same every step)</span><span class="cs-size mono">${formatBytes(new Blob([payload.system]).size)}</span></summary><pre class="cs-text">${withTokens(payload.system)}</pre></details>` : ""}
+    ${messages}
+    <h4>Kept on this device</h4>
+    <p class="cs-note">The model only ever saw the tokens. Pawtrol swaps in the real values locally, at the moment it types them.</p>
+    <div class="cs-local">${localRows}</div>`;
+
+  body.querySelectorAll("[data-step]").forEach((chip) =>
+    chip.addEventListener("click", () => {
+      cloud.selected = Number(chip.dataset.step);
+      renderCloudSaw();
+    }),
+  );
+}
+
+function setCloudSawOpen(open) {
+  const sheet = $("cloud-saw");
+  if (open) {
+    // One sheet at a time: close whatever the bundle has open.
+    document.querySelectorAll(".sheet:not(#cloud-saw)").forEach((s) => s.classList.add("hidden"));
+    document.querySelectorAll("#tools-menu .menu-item").forEach((b) => b.classList.remove("active"));
+    renderCloudSaw();
+  }
+  sheet.classList.toggle("hidden", !open);
+  $("btn-cloud-saw").classList.toggle("active", open);
+}
+
+async function loadCloudSaw() {
+  try {
+    const res = await chrome.runtime.sendMessage({ kind: "get-egress-payloads" });
+    if (Array.isArray(res?.payloads)) cloud.payloads = res.payloads;
+  } catch {
+    /* service worker asleep; nothing was sent yet */
+  }
+}
+
+function initCloudSaw() {
+  $("btn-cloud-saw").addEventListener("click", async () => {
+    const open = $("cloud-saw").classList.contains("hidden");
+    if (open) await loadCloudSaw();
+    setCloudSawOpen(open);
+  });
+  $("cloud-saw-close").addEventListener("click", () => setCloudSawOpen(false));
+  // The bundle's own sheets close this one.
+  for (const id of ["btn-history", "btn-perception", "btn-radar", "btn-learning"]) {
+    $(id)?.addEventListener("click", () => setCloudSawOpen(false));
+  }
+}
+
+// ─── Performance strip ─────────────────────────────────────────────────
+// Live numbers from this run only: the last on-device capture's stage
+// timings, and how much left the device.
+
+const perf = { timings: null, backend: "", requests: 0, bytes: 0, local: true };
+
+function renderPerf() {
+  const strip = $("perf-strip");
+  if (!perf.timings && perf.requests === 0) {
+    strip.hidden = true;
+    return;
+  }
+  const parts = [];
+  if (perf.timings) {
+    const t = perf.timings;
+    parts.push(
+      `<span class="perf-backend">${escapeHtml(perf.backend || "on-device")}</span>`,
+      `detect <b>${Math.round(t.detection)}</b>`,
+      `OCR <b>${Math.round(t.ocr)}</b>`,
+      `mask <b>${Math.round(t.masking)}</b>`,
+      `verify <b>${Math.round(t.verification)}</b> ms`,
+    );
+  }
+  if (perf.requests > 0) {
+    parts.push(
+      `<b>${perf.requests}</b> ${perf.requests === 1 ? "request" : "requests"}`,
+      perf.local ? "nothing left the device" : `<b>${formatBytes(perf.bytes)}</b> sent`,
+    );
+  }
+  strip.innerHTML = parts.join('<span class="perf-sep" aria-hidden="true">·</span>');
+  strip.hidden = false;
+}
+
+function resetPerf() {
+  Object.assign(perf, { timings: null, backend: "", requests: 0, bytes: 0, local: true });
+  renderPerf();
+}
+
 // ─── Wire-up ───────────────────────────────────────────────────────────
 async function init() {
   initAuditViewer();
+  initCloudSaw();
   initToolsMenu();
   initLauncherToggle();
   shuffleSuggestions();
@@ -810,6 +988,7 @@ async function init() {
   $("new-task-btn").addEventListener("click", () => {
     exposure.entities = 0;
     renderExposure();
+    resetPerf();
     shuffleSuggestions();
     renderGreeting();
     refreshTripwire();
@@ -822,6 +1001,23 @@ async function init() {
       renderExposure();
     } else if (msg?.kind === "tripwire-update") {
       refreshTripwire();
+    } else if (msg?.kind === "status" && msg.running) {
+      cloud.payloads = [];
+      cloud.selected = null;
+      resetPerf();
+      if (!$("cloud-saw").classList.contains("hidden")) renderCloudSaw();
+    } else if (msg?.kind === "egress-payload" && msg.payload) {
+      cloud.payloads.push(msg.payload);
+      if (cloud.payloads.length > 20) cloud.payloads.shift();
+      perf.requests += 1;
+      perf.bytes += Number(msg.payload.bytes) || 0;
+      perf.local &&= msg.payload.local === true;
+      renderPerf();
+      if (!$("cloud-saw").classList.contains("hidden")) renderCloudSaw();
+    } else if (msg?.kind === "perf" && msg.timings) {
+      perf.timings = msg.timings;
+      perf.backend = msg.backend;
+      renderPerf();
     }
   });
 

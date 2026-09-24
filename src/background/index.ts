@@ -18,7 +18,7 @@ import { applyReflectionResults, clearLearnedRules, getLearnedRules, getRulesSum
 import { addLessons, addTrajectory, generateLessons, getLessons, getTrajectories } from "./learning/lessons";
 import { reflectOnExperience } from "./learning/reflection";
 import { createEgressWatch, type TripwireAlert } from "./privacy/egress-watch";
-import { gatePlanner } from "./privacy/egress-gate";
+import { gatePlanner, type EgressPayload } from "./privacy/egress-gate";
 import { getLedgerSummary, logEgressBlock, logRedaction } from "./privacy/ledger";
 import { captureAndProcessScreenshot } from "./privacy/screenshot";
 import { isRestrictedUrl } from "./browser/executor";
@@ -32,6 +32,8 @@ const PRIOR_ANSWER_CHARS = 800;
 const MAX_TRIPWIRE_ALERTS = 60;
 const CONFIRM_TIMEOUT_MS = 120_000;
 const MAX_AUDIT_RECORDS = 10;
+/** Outgoing requests kept for the "What the cloud saw" view (current run only). */
+const MAX_EGRESS_PAYLOADS = 20;
 const LAST_REFLECTION_KEY = "pry-last-reflection";
 
 let transcript: TranscriptEntry[] = [];
@@ -44,6 +46,7 @@ const tripwireAlerts: TripwireAlert[] = [];
 let egressEntryShown = false;
 const pendingConfirms = new Map<string, (approved: boolean) => void>();
 let auditRecords: (AuditRecord & { timestamp: number })[] = [];
+let egressPayloads: EgressPayload[] = [];
 let runStartedAt = 0;
 let lastRunStats: unknown = null;
 /** The tab whose in-page launcher mirrors the current run, and what it last showed. */
@@ -67,6 +70,9 @@ function emit(event: AgentEvent): void {
       if (patch.redactedText !== undefined) entry.redactedText = (entry.redactedText ?? "") + patch.redactedText;
       if (patch.pending !== undefined) entry.pending = patch.pending;
     }
+  } else if (event.kind === "egress-payload") {
+    egressPayloads.push(event.payload as EgressPayload);
+    if (egressPayloads.length > MAX_EGRESS_PAYLOADS) egressPayloads.shift();
   } else if (event.kind === "run-stats") {
     lastRunStats = event.stats;
   } else if (event.kind === "experience") {
@@ -148,6 +154,7 @@ function recordAudit(record: AuditRecord): void {
     auditRecords = [auditRecords[0], ...auditRecords.slice(auditRecords.length - MAX_AUDIT_RECORDS + 2)];
   }
   auditRecords.push({ ...record, timestamp: Date.now() });
+  if (record.timings) emit({ kind: "perf", timings: record.timings, backend: record.backend ?? "unknown" });
 }
 
 function emitPrivacyAudit(): void {
@@ -314,6 +321,7 @@ async function startRun(task: string, tabId: number): Promise<void> {
   launcherTabId = tabId;
   launcherState = {};
   auditRecords = [];
+  egressPayloads = [];
   emit({ kind: "status", running: true });
   emit({ kind: "entry", entry: { id: `u-${Date.now()}`, role: "user", text: task } });
 
@@ -519,6 +527,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ ok: true });
       })();
       return true;
+
+    case "get-egress-payloads":
+      sendResponse({ payloads: egressPayloads });
+      return false;
 
     case "get-ledger":
       getLedgerSummary().then((ledgerSummary) => sendResponse({ ledgerSummary }));

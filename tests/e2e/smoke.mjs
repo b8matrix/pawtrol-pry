@@ -229,6 +229,40 @@ try {
     for (const value of RAW_VALUES) check(!visionText.includes(value), `raw value never sent to vision model: ${JSON.stringify(value)}`);
   }
 
+  // "What the cloud saw" must show exactly what the mock model received.
+  const { payloads } = await panel.evaluate(() => chrome.runtime.sendMessage({ kind: "get-egress-payloads" }));
+  const plannerPayloads = payloads.filter((p) => p.channel === "planner");
+  const visionPayloads = payloads.filter((p) => p.channel === "vision");
+  check(plannerPayloads.length === plannerRequests.length, `cloud view recorded every planner request (${plannerPayloads.length}/${plannerRequests.length})`);
+  check(visionPayloads.length === visionRequests.length, `cloud view recorded every vision request (${visionPayloads.length}/${visionRequests.length})`);
+  const shown = plannerPayloads.every((p, i) =>
+    p.messages.filter((m) => m.role !== "assistant").every((m) => plannerRequests[i].includes(JSON.stringify(m.text).slice(1, -1))),
+  );
+  check(shown, "cloud view text matches the planner requests byte for byte");
+  const shownText = JSON.stringify(payloads.map(({ localTokens, ...p }) => p));
+  for (const value of RAW_VALUES) check(!shownText.includes(value), `cloud view holds no raw value: ${JSON.stringify(value)}`);
+
+  await panel.evaluate(() => document.getElementById("btn-cloud-saw").click());
+  await panel.waitForSelector("#cloud-saw:not(.hidden) .cs-steps .chip", { timeout: 5000 }).catch(() => {});
+  const sheet = await panel.evaluate(() => ({
+    chips: document.querySelectorAll("#cloud-saw .cs-steps .chip").length,
+    tokens: document.querySelectorAll("#cloud-saw .tok").length,
+    perf: document.getElementById("perf-strip").hidden ? "" : document.getElementById("perf-strip").textContent,
+  }));
+  check(sheet.chips === payloads.length, `cloud view sheet lists every request (${sheet.chips})`);
+  check(sheet.tokens > 0, `cloud view highlights tokens (${sheet.tokens})`);
+  check(/request/.test(sheet.perf) && /nothing left the device/.test(sheet.perf), `performance strip shows live numbers (${sheet.perf.replace(/\s+/g, " ").trim()})`);
+  // PAWTROL_E2E_SHOTS=<dir> saves the sheet in both themes for a visual check.
+  if (process.env.PAWTROL_E2E_SHOTS) {
+    await panel.setViewportSize({ width: 400, height: 860 });
+    for (const scheme of ["light", "dark"]) {
+      await panel.evaluate((s) => document.documentElement.setAttribute("data-scheme", s), scheme);
+      await panel.waitForTimeout(400); // let colour transitions finish
+      await panel.screenshot({ path: `${process.env.PAWTROL_E2E_SHOTS}/cloud-saw-${scheme}.png` });
+    }
+  }
+  await panel.evaluate(() => document.getElementById("cloud-saw-close").click());
+
   const typed = await page.evaluate(() => document.querySelector('input[name="search"]').value);
   check(typed.replace(/\D/g, "") === AADHAAR.replace(/\D/g, ""), `token resolved locally into the page (${JSON.stringify(typed)})`);
 
