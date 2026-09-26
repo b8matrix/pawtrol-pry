@@ -30,3 +30,7 @@ Desktop.ini
 # Build & dependencies
 node_modules/
 dist/
+
+# Built by npm run site
+site/pawtrol-extension.zip
+site/assets/

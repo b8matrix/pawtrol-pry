@@ -12,7 +12,8 @@
     "e2e": "node tests/e2e/smoke.mjs",
     "test:vision": "node tests/e2e/vision-verification.mjs",
     "bench": "node bench/agent/run.mjs",
-    "check": "npm run typecheck && npm test && npm run build"
+    "check": "npm run typecheck && npm test && npm run build",
+    "site": "node scripts/package-site.mjs"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "0.120.0",

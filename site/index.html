@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Pawtrol: the browser agent that keeps your data on your device</title>
+  <meta name="description" content="Pawtrol is a Chrome extension with an AI agent inside. It fills forms and clicks through pages for you, and hides your passwords, ID numbers and faces on your device before any model sees the page." />
+  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0b0e12" media="(prefers-color-scheme: dark)" />
+  <link rel="icon" href="assets/icon48.png" />
+  <script>
+    (function () {
+      var s = null;
+      try { s = localStorage.getItem("pawtrol-site-theme"); } catch (e) {}
+      if (s !== "light" && s !== "dark") s = matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+      document.documentElement.setAttribute("data-scheme", s);
+    })();
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="site.css" />
+</head>
+<body>
+<!--
+THESIS: Two columns, the whole way down: your real screen on the left, what the cloud model received on the right. Refuses the category default of headline + product screenshot + feature-card grid.
+OWN-WORLD: Pawtrol Run Ledger. Drafting-white / blueprint-night paper, steel-blue ink, hairline and dashed rules, crosshair frames, Barlow Condensed uppercase labels, mono only for data and tokens, opaque dark mask bars.
+STORY: Visitor sees a form with fake Aadhaar/PAN/card on the left turn into tokens on the right, learns the four-step loop, watches a screenshot get masked and verified, trusts the safeguards, downloads the ZIP and loads it unpacked.
+FIRST VIEWPORT: Headline and lede top-left, Download ZIP primary button under it; below, twin crosshair panes "Your screen" / "What the cloud saw" with a live scan animation.
+FORM: Split screen, candidate 2 of 7; seed 9165a5cf.
+FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
+-->
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="portrait" viewBox="0 0 56 64">
+      <rect width="56" height="64" fill="#c9d6e5" />
+      <path d="M8 64c1-12 9-18 20-18s19 6 20 18z" fill="#3f5873" />
+      <path d="M22 40h12v8a6 6 0 0 1-12 0z" fill="#b98a6e" />
+      <ellipse cx="28" cy="29" rx="11" ry="13" fill="#c99a7c" />
+      <path d="M16 29c0-11 5-17 12-17s13 5 13 15c-3-5-8-7-13-7-4 0-9 2-12 9z" fill="#2a2320" />
+      <path d="M16 28c-1 7 0 14 3 18-1-6-1-12-3-18zM40 27c1 7 1 13-2 19 1-6 1-12 2-19z" fill="#2a2320" />
+      <circle cx="24" cy="30" r="1.1" fill="#2a2320" /><circle cx="32" cy="30" r="1.1" fill="#2a2320" />
+      <path d="M25 36c2 1.3 4 1.3 6 0" stroke="#8a5a48" stroke-width="1" fill="none" stroke-linecap="round" />
+    </symbol>
+  </defs>
+</svg>
+
+<header class="topbar">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="Pawtrol home"><img src="assets/icon128.png" alt="" width="28" height="28" /><span>Pawtrol</span></a>
+    <nav class="nav" aria-label="Sections">
+      <a href="#how">How it works</a>
+      <a href="#screenshots">Screenshots</a>
+      <a href="#setup">Setup</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <div class="topbar-actions">
+      <a class="icon-btn" href="https://github.com/b8matrix/pawtrol-pry" aria-label="Source code on GitHub">
+        <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 13.5c-3 .9-3-1.5-4.2-1.8M10 15v-2.3c0-.7.1-1.1-.4-1.6 2-.2 3.9-1 3.9-4.3 0-.9-.3-1.7-.9-2.3.3-.8.2-1.7-.1-2.3 0 0-.8-.2-2.4.9a8 8 0 0 0-4.2 0C4.3 2 3.5 2.2 3.5 2.2c-.3.7-.4 1.5-.1 2.3-.6.6-.9 1.4-.9 2.3 0 3.3 1.9 4.1 3.9 4.3-.4.4-.5.9-.4 1.6V15" /></svg>
+      </a>
+      <button class="icon-btn theme-toggle" type="button" data-theme-toggle aria-label="Switch light or dark theme">
+        <svg class="ico moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 9.5A5.5 5.5 0 0 1 6.5 2.5a5.5 5.5 0 1 0 7 7z" /></svg>
+        <svg class="ico sun" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3" /><path d="M8 1.5v1.3M8 13.2v1.3M1.5 8h1.3M13.2 8h1.3M3.4 3.4l.9.9M11.7 11.7l.9.9M3.4 12.6l.9-.9M11.7 4.3l.9-.9" /></svg>
+      </button>
+      <a class="btn btn-primary btn-sm" href="pawtrol-extension.zip" download>
+        <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v8.5M4.5 7 8 10.5 11.5 7M3 13.5h10" /></svg><span>Download</span>
+      </a>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+  <!-- ─── Hero ───────────────────────────────────────────────── -->
+  <section class="hero">
+    <div class="wrap">
+      <div class="hero-copy">
+        <h1>An AI agent for your browser that never sees <em>your data</em>.</h1>
+        <p class="lede">Pawtrol is a Chrome extension. Tell it what to do on a page, like “fill this form”, and it clicks and types for you. Before any page text or screenshot leaves your computer, it hides your passwords, ID numbers, card numbers and faces. The AI works with placeholders, and Pawtrol types the real values in locally.</p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="pawtrol-extension.zip" download>
+            <svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v8.5M4.5 7 8 10.5 11.5 7M3 13.5h10" /></svg>Download for Chrome
+          </a>
+          <a class="btn" href="#setup">Set it up in 2 minutes</a>
+          <span class="cta-meta"><!--zip-meta-->Version 1.0.0 · ZIP · 17.7 MB<!--/zip-meta--></span>
+        </div>
+      </div>
+
+      <div class="twin" data-hero>
+        <div class="frame ruled pane device">
+          <i class="cross tl"></i><i class="cross tr"></i><i class="cross bl"></i><i class="cross br"></i>
+          <div class="pane-head"><span class="label">Your screen</span><span class="where">on your device</span></div>
+          <div class="mock">
+            <div class="scan" aria-hidden="true"></div>
+            <div class="mock-url"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.5" rx="1" /><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" /></svg>forms.example/kyc</div>
+            <div class="mock-title">
+              <div class="photo" data-row="0"><svg aria-hidden="true"><use href="#portrait" /></svg></div>
+              <div><h3>Account verification</h3><p>Priya Verma · applicant</p></div>
+            </div>
+            <div class="fields">
+              <div class="field" data-row="1"><span class="k">Full name</span><span class="v">Priya Verma</span><span class="tag">Name</span></div>
+              <div class="field" data-row="2"><span class="k">Aadhaar</span><span class="v">4872 9136 5024</span><span class="tag">Aadhaar · checksum ok</span></div>
+              <div class="field" data-row="3"><span class="k">PAN</span><span class="v">ABCPV1234K</span><span class="tag">PAN</span></div>
+              <div class="field" data-row="4"><span class="k">Card</span><span class="v">4111 1111 1111 1111</span><span class="tag">Card · Luhn ok</span></div>
+              <div class="field" data-row="5"><span class="k">Email</span><span class="v">priya.verma@example.com</span><span class="tag">Email</span></div>
+              <div class="field" data-row="6"><span class="k">Password</span><span class="v">••••••••••</span><span class="tag">Password</span></div>
+            </div>
+            <span class="mock-submit">Submit</span>
+          </div>
+          <div class="pane-foot"><span>6 sensitive values found</span><button class="play-toggle" type="button" aria-pressed="false" data-hero-toggle>
+            <svg class="ico i-pause" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 3.5v9M10.5 3.5v9" /></svg>
+            <svg class="ico i-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6L12.5 8z" /></svg>
+            <span data-hero-toggle-label>Pause</span></button></div>
+        </div>
+
+        <div class="twin-bridge" aria-hidden="true"><svg class="ico" viewBox="0 0 16 16"><path d="M2.5 8h11M9.5 4 13.5 8l-4 4" /></svg></div>
+
+        <div class="frame ruled pane cloud">
+          <i class="cross tl"></i><i class="cross tr"></i><i class="cross bl"></i><i class="cross br"></i>
+          <div class="pane-head"><span class="label">What the cloud saw</span><span class="where">sent to the model</span></div>
+          <div class="mock">
+            <div class="mock-url"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.5" rx="1" /><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" /></svg>forms.example/kyc</div>
+            <div class="mock-title">
+              <div class="photo"><svg aria-hidden="true"><use href="#portrait" /></svg></div>
+              <div><h3>Account verification</h3><p><span class="token">&lt;PII_1&gt;</span> · applicant</p></div>
+            </div>
+            <div class="fields">
+              <div class="field" data-row="1"><span class="k">Full name</span><span class="v"><i class="pending"></i><span class="token">&lt;PII_1&gt;</span></span></div>
+              <div class="field" data-row="2"><span class="k">Aadhaar</span><span class="v"><i class="pending"></i><span class="token">&lt;ID_1&gt;</span></span></div>
+              <div class="field" data-row="3"><span class="k">PAN</span><span class="v"><i class="pending"></i><span class="token">&lt;ID_2&gt;</span></span></div>
+              <div class="field" data-row="4"><span class="k">Card</span><span class="v"><i class="pending"></i><span class="token">&lt;CRED_1&gt;</span></span></div>
+              <div class="field" data-row="5"><span class="k">Email</span><span class="v"><i class="pending"></i><span class="token">&lt;CRED_2&gt;</span></span></div>
+              <div class="field" data-row="6"><span class="k">Password</span><span class="v"><i class="pending"></i><span class="token withheld">withheld</span></span></div>
+            </div>
+            <span class="mock-submit">Submit</span>
+          </div>
+          <div class="pane-foot"><span class="ok-dot">0 raw values sent</span><span>face blurred</span></div>
+        </div>
+      </div>
+      <p class="twin-note">Illustration with made-up data. The token names are the ones Pawtrol really uses.</p>
+    </div>
+  </section>
+
+  <!-- ─── How it works ───────────────────────────────────────── -->
+  <section class="section" id="how">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>The model plans the task. It never needs the real values.</h2>
+        <p>To fill an Aadhaar field, the AI only has to know there <em>is</em> an Aadhaar number and where it goes. Pawtrol keeps the number and types it in itself.</p>
+      </div>
+
+      <div class="how">
+        <div class="steps">
+          <article class="step active" data-step="1">
+            <span class="where-chip">On your device</span>
+            <h3><span class="n">1</span>Find what’s sensitive</h3>
+            <p>Pawtrol reads the page and flags passwords, Aadhaar and PAN numbers, card numbers, emails, phone numbers and names. ID numbers are checked with their checksums (Verhoeff for Aadhaar, Luhn for cards), so random digits aren’t mistaken for IDs.</p>
+          </article>
+          <article class="step" data-step="2">
+            <span class="where-chip">On your device</span>
+            <h3><span class="n">2</span>Swap them for tokens</h3>
+            <p>Each value becomes a placeholder like <code>&lt;ID_1&gt;</code>. The real values stay in a vault inside the extension, which is wiped after every task. Passwords are withheld completely.</p>
+          </article>
+          <article class="step" data-step="3">
+            <span class="where-chip cloud">In the cloud</span>
+            <h3><span class="n">3</span>The model plans with tokens</h3>
+            <p>The AI sees the page’s layout and the tokens, then replies with actions: <code>type &lt;ID_1&gt; into “Aadhaar”</code>, <code>click “Submit”</code>. If a page tries to trick it into asking for a token Pawtrol never issued, the request is refused.</p>
+          </article>
+          <article class="step" data-step="4">
+            <span class="where-chip">On your device</span>
+            <h3><span class="n">4</span>Pawtrol fills in the real values</h3>
+            <p>The tokens are turned back into real values inside your browser and typed into the page. Before anything risky, like submitting, sending or paying, Pawtrol stops and asks you.</p>
+          </article>
+        </div>
+
+        <div class="stage-col">
+          <div class="stage" data-step="1" aria-hidden="true">
+            <div class="frame ruled">
+              <i class="cross tl"></i><i class="cross tr"></i><i class="cross bl"></i><i class="cross br"></i>
+              <div class="stage-grid">
+                <div class="device-side">
+                  <span class="label">Your device</span>
+                  <div class="srow sens fill"><span class="k">Aadhaar</span><span class="v"><span class="real">4872 9136 5024</span><span class="blank empty">empty</span></span></div>
+                  <div class="srow sens"><span class="k">PAN</span><span class="v">ABCPV1234K</span></div>
+                  <div class="srow sens"><span class="k">Card</span><span class="v">4111 1111 1111 1111</span></div>
+                  <div class="srow"><span class="k">City</span><span class="v">Pune</span></div>
+                  <div class="vault">
+                    <span class="label"><svg class="ico" viewBox="0 0 16 16"><rect x="3.5" y="7" width="9" height="6.5" rx="1" /><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" /></svg>Vault · stays here</span>
+                    <div class="row"><b>&lt;ID_1&gt;</b><span>4872 9136 5024</span></div>
+                    <div class="row"><b>&lt;ID_2&gt;</b><span>ABCPV1234K</span></div>
+                    <div class="row"><b>&lt;CRED_1&gt;</b><span>4111 1111 1111 1111</span></div>
+                  </div>
+                  <div class="confirm">
+                    <p>Submit this form?</p>
+                    <div class="btns"><span class="mini pri">Allow</span><span class="mini">Deny</span></div>
+                  </div>
+                </div>
+                <div class="cloud-side">
+                  <span class="label">Sent to the model</span>
+                  <div class="nothing"><div><svg class="ico" viewBox="0 0 16 16"><path d="M4.5 12.5h7a3 3 0 0 0 .4-6 4 4 0 0 0-7.8 1A2.5 2.5 0 0 0 4.5 12.5z" /></svg>Nothing has left<br />your device yet</div></div>
+                  <div class="log">
+                    <span class="ln s2 dim" style="--i:0">page: forms.example/kyc</span>
+                    <span class="ln s2" style="--i:1">[4] input “Aadhaar” = <span class="tok">&lt;ID_1&gt;</span></span>
+                    <span class="ln s2" style="--i:2">[5] input “PAN” = <span class="tok">&lt;ID_2&gt;</span></span>
+                    <span class="ln s2" style="--i:3">[6] input “Card” = <span class="tok">&lt;CRED_1&gt;</span></span>
+                    <span class="ln s2" style="--i:4">[7] input “City” = Pune</span>
+                    <span class="ln s2" style="--i:5">[9] button “Submit”</span>
+                    <span class="ln s3 dim" style="--i:0">&nbsp;</span>
+                    <span class="ln s3 dim" style="--i:0">model replies:</span>
+                    <span class="ln s3" style="--i:1">type(<span class="tok">&lt;ID_1&gt;</span>, “Aadhaar”)</span>
+                    <span class="ln s3" style="--i:2">click(“Submit”)</span>
+                    <span class="ln s4 dim">&nbsp;</span>
+                    <span class="ln s4 dim">real values sent: 0</span>
+                  </div>
+                </div>
+              </div>
+              <div class="stage-steps"><span>Find</span><span>Tokenize</span><span>Plan</span><span>Fill</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Screenshot film ────────────────────────────────────── -->
+  <section class="section" id="screenshots">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Screenshots get the same treatment, and a second check.</h2>
+        <p>Some data is drawn as pixels, like a scanned ID card, where page code can’t see it. So Pawtrol runs small vision models in your browser, masks what they find, then reads the masked image again to make sure nothing slipped through.</p>
+      </div>
+
+      <div class="frame film" data-film data-ch="0">
+        <i class="cross tl"></i><i class="cross tr"></i><i class="cross bl"></i><i class="cross br"></i>
+        <div class="film-screen" aria-hidden="true">
+          <div class="shot">
+            <div class="shot-bar"><i></i><i></i><i></i><span></span></div>
+            <div class="shot-body">
+              <div class="idcard">
+                <div class="row">
+                  <div class="face"><svg><use href="#portrait" /></svg><i class="fbox"><b>Face</b></i></div>
+                  <div class="lines ocr" data-ocr="Image text">
+                    <span class="ttl">IDENTITY CARD</span>
+                    <span class="sm"><span class="m" data-cap="Name">Priya Verma</span></span>
+                    <span class="sm">DOB 12/05/2001</span>
+                    <span class="num"><span class="m" data-cap="ID number">4872 9136 5024</span></span>
+                  </div>
+                </div>
+              </div>
+              <div class="shot-text">
+                <span class="h ocr" data-ocr="Text">Upload your ID</span>
+                <span class="p ocr">We’ll call you on <span class="m" data-cap="Phone">98765 43210</span> once it’s verified.</span>
+                <span class="bar w1"></span><span class="bar w2"></span><span class="bar w3"></span>
+              </div>
+            </div>
+            <div class="ov reocr"></div>
+            <div class="ov stamp">Verified</div>
+          </div>
+          <div class="ov flash"></div>
+          <div class="ov to-model"><span class="cloud-ico"><svg class="ico" viewBox="0 0 16 16"><path d="M4.5 12.5h7a3 3 0 0 0 .4-6 4 4 0 0 0-7.8 1A2.5 2.5 0 0 0 4.5 12.5z" /></svg></span>To the model</div>
+        </div>
+
+        <div class="film-caption" aria-live="polite">
+          <span class="tc" data-film-tc>00:00</span>
+          <h3 data-film-title>Press play</h3>
+          <p data-film-text>Six stages, all inside your browser. Nothing is sent until the last one.</p>
+        </div>
+        <div class="film-controls">
+          <button class="icon-btn" type="button" data-film-play aria-label="Play">
+            <svg class="ico i-play" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 3.2v9.6L12.5 8z" /></svg>
+            <svg class="ico i-pause" viewBox="0 0 16 16" aria-hidden="true" style="display:none"><path d="M5.5 3.5v9M10.5 3.5v9" /></svg>
+          </button>
+          <div class="chapters" role="group" aria-label="Chapters">
+            <button type="button" data-n="1" data-ch="1"><span class="fill"></span>Capture</button>
+            <button type="button" data-n="2" data-ch="2"><span class="fill"></span>Find text</button>
+            <button type="button" data-n="3" data-ch="3"><span class="fill"></span>Find faces</button>
+            <button type="button" data-n="4" data-ch="4"><span class="fill"></span>Mask</button>
+            <button type="button" data-n="5" data-ch="5"><span class="fill"></span>Verify</button>
+            <button type="button" data-n="6" data-ch="6"><span class="fill"></span>Send</button>
+          </div>
+          <span class="time" data-film-time>0:00 / 0:24</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Safeguards ─────────────────────────────────────────── -->
+  <section class="section" id="safeguards">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Every way out is guarded.</h2>
+        <p>Redaction is only one layer. These checks run on every task, and you can see what each one did.</p>
+      </div>
+      <div class="ledger">
+        <div class="ledger-row"><h3>One checkpoint for everything sent</h3><p>Every request to the model passes a single gate. It swaps any real value back to its token, scans again for valid ID numbers, and blocks the request if one is still there.</p><span class="where">Your device</span></div>
+        <div class="ledger-row"><h3>Fails closed</h3><p>If a vision model errors or the masked screenshot can’t be verified, the screenshot is dropped. The AI never gets an image that wasn’t checked.</p><span class="where">Your device</span></div>
+        <div class="ledger-row"><h3>See what the cloud saw</h3><p>Open any task and read the exact text and images that were sent, token by token. What you see there is everything the model got.</p><span class="where">Side panel</span></div>
+        <div class="ledger-row"><h3>Tripwire on the page itself</h3><p>Websites send data too. Pawtrol watches the page’s own outgoing requests for card, Aadhaar and PAN numbers and emails, and warns you when it spots one.</p><span class="where">Every page</span></div>
+        <div class="ledger-row"><h3>You approve risky actions</h3><p>Submitting a form, sending a message or paying waits for your Allow. Banking pages get text only, never screenshots.</p><span class="where">Your device</span></div>
+        <div class="ledger-row"><h3>Your model, your key, no Pawtrol server</h3><p>Calls go straight from your browser to the provider you pick. Use Ollama and nothing leaves your computer at all.</p><span class="where cloud">Your choice</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Setup ──────────────────────────────────────────────── -->
+  <section class="section" id="setup">
+    <div class="wrap">
+      <div class="section-head">
+        <h2>Set it up in about two minutes.</h2>
+        <p>Pawtrol isn’t on the Chrome Web Store yet, so you load it yourself. It works in Chrome on Windows, macOS and Linux.</p>
+      </div>
+      <div class="setup">
+        <ol class="setup-list">
+          <li><div><h3>Download and unzip</h3><p>Unzip <code>pawtrol-extension.zip</code> into a folder you’ll keep, like <code>Documents/Pawtrol</code>. Chrome loads it from there, so don’t delete it.</p><a class="btn btn-primary btn-sm mini-cta" href="pawtrol-extension.zip" download><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v8.5M4.5 7 8 10.5 11.5 7M3 13.5h10" /></svg>Download ZIP</a></div></li>
+          <li><div><h3>Open Chrome’s extensions page</h3><p>Paste this into the address bar, then turn on <strong>Developer mode</strong> in the top-right corner.</p>
+            <div class="copyline"><code>chrome://extensions</code><button class="icon-btn" type="button" data-copy="chrome://extensions" aria-label="Copy address">
+              <svg class="ico i-copy" viewBox="0 0 16 16" aria-hidden="true"><rect x="5.5" y="5.5" width="8" height="8" rx="1.5" /><path d="M10.5 5.5v-2a1 1 0 0 0-1-1h-6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2" /></svg>
+              <svg class="ico i-check" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5 6.5 11.5 12.5 4.5" /></svg>
+            </button></div></div></li>
+          <li><div><h3>Load unpacked</h3><p>Click <strong>Load unpacked</strong> and choose the unzipped folder (the one with <code>manifest.json</code> in it). Pin Pawtrol from the puzzle-piece menu so it’s one click away.</p></div></li>
+          <li><div><h3>Pick your model</h3><p>Open Pawtrol’s settings, choose a provider and paste your API key. For a fully offline setup, choose Ollama. It needs no key.</p></div></li>
+          <li><div><h3>Give it a task</h3><p>Click the Pawtrol icon to open the side panel, or press <span class="kbd">Alt</span> + <span class="kbd">Shift</span> + <span class="kbd">P</span> on any page for the floating launcher. Try “Scan this page for personal data”.</p></div></li>
+        </ol>
+
+        <aside class="frame providers" aria-labelledby="prov-h">
+          <i class="cross tl"></i><i class="cross tr"></i><i class="cross bl"></i><i class="cross br"></i>
+          <h3 id="prov-h">Works with the model you already use</h3>
+          <p>Bring your own key. It’s stored only in your browser.</p>
+          <ul class="prov-list">
+            <li class="local"><b>Ollama</b><span>on your computer, no key</span></li>
+            <li><b>Anthropic</b><span>Claude</span></li>
+            <li><b>OpenAI</b><span>GPT</span></li>
+            <li><b>Google Gemini</b><span>Gemini</span></li>
+            <li><b>Groq</b><span>open-weight models</span></li>
+            <li><b>Cerebras</b><span>open-weight models</span></li>
+            <li><b>NVIDIA NIM</b><span>open-weight models</span></li>
+            <li><b>OpenRouter</b><span>many models</span></li>
+          </ul>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── FAQ ────────────────────────────────────────────────── -->
+  <section class="section" id="faq">
+    <div class="wrap">
+      <div class="section-head"><h2>Questions</h2></div>
+      <div class="faq">
+        <details><summary>Is Pawtrol free?<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" /></svg></summary><p>Yes. You only pay your model provider, if they charge. Several have free tiers, and Ollama runs free on your own machine.</p></details>
+        <details><summary>Does my data go to a Pawtrol server?<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" /></svg></summary><p>There is no Pawtrol server. The extension talks directly to the provider you choose, and only after redaction. Your API key and settings stay in Chrome’s local storage.</p></details>
+        <details><summary>What if Pawtrol misses something?<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" /></svg></summary><p>Several layers overlap: detection on the page text, vision models on screenshots, a re-check of the masked image, and a final scan of every outgoing request that blocks any ID number still present. If a check can’t run, Pawtrol drops the screenshot instead of sending it unchecked.</p></details>
+        <details><summary>Can it do anything without asking me?<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" /></svg></summary><p>It can read, scroll, click and type. Anything that commits you, like submitting, sending or paying, waits for your approval. You can stop a task at any time.</p></details>
+        <details><summary>Which browsers does it work in?<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" /></svg></summary><p>Google Chrome, version 120 or newer, because Pawtrol lives in Chrome’s side panel. Other browsers aren’t supported yet.</p></details>
+        <details><summary>Why is the download so big?<svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" /></svg></summary><p>It includes the OCR engine and the small vision models that run on your device, so screenshots never need a server to be cleaned.</p></details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ─── Close ──────────────────────────────────────────────── -->
+  <section class="close">
+    <div class="wrap">
+      <div class="frame ruled">
+        <i class="cross tl"></i><i class="cross tr"></i><i class="cross bl"></i><i class="cross br"></i>
+        <div>
+          <h2>Let it do the clicking. Keep what’s yours.</h2>
+          <p>Download Pawtrol, load it in Chrome, and try it on a form you’d normally fill in by hand.</p>
+        </div>
+        <div class="cta-col">
+          <a class="btn btn-primary" href="pawtrol-extension.zip" download><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2v8.5M4.5 7 8 10.5 11.5 7M3 13.5h10" /></svg>Download for Chrome</a>
+          <span class="cta-meta"><!--zip-meta-->Version 1.0.0 · ZIP · 17.7 MB<!--/zip-meta--></span>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>Pawtrol · built for Smart India Hackathon 2026, PS 26171</span>
+    <nav aria-label="Footer">
+      <a href="#how">How it works</a>
+      <a href="#setup">Setup</a>
+      <a href="https://github.com/b8matrix/pawtrol-pry">GitHub</a>
+    </nav>
+  </div>
+</footer>
+
+<script src="site.js"></script>
+</body>
+</html>
