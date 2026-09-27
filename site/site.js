@@ -26,6 +26,81 @@
     });
   }
 
+  /* ─── Hero eclipse: drifts toward the pointer, rim lit on its side,
+         a soft glow trails behind. Touch screens get a slow ambient drift
+         and follow the finger while it is on the hero. ─────────────────── */
+  var heroEl = document.querySelector(".hero");
+  var eclipse = heroEl && heroEl.querySelector(".eclipse");
+  var glow = heroEl && heroEl.querySelector(".hero-glow");
+  if (eclipse && glow && !reduced) {
+    var fine = matchMedia("(hover: hover) and (pointer: fine)").matches;
+    var DRIFT_X = fine ? 80 : 34, DRIFT_Y = fine ? 56 : 24;
+    var tx = 0, ty = 0, ta = 180, tgx = 0, tgy = 0;   // targets
+    var cx = 0, cy = 0, ca = 180, gx = 0, gy = 0;     // eased
+    var eRaf = 0, heroVisible = true, touching = false, t0 = performance.now();
+
+    function aimAt(px, py) {                          // px, py relative to hero
+      var w = heroEl.offsetWidth, hh = Math.min(heroEl.offsetHeight, innerHeight);
+      var nx = Math.max(-1, Math.min(1, (px / w) * 2 - 1));
+      var ny = Math.max(-1, Math.min(1, (py / hh) * 2 - 1));
+      tx = nx * DRIFT_X; ty = ny * DRIFT_Y;
+      var er = eclipse.getBoundingClientRect(), hr = heroEl.getBoundingClientRect();
+      var dx = px - (er.left - hr.left + er.width / 2), dy = py - (er.top - hr.top + er.height / 2);
+      // CSS gradient angle: 0deg points up, clockwise. Light the side facing the pointer.
+      ta = (Math.atan2(dx, -dy) * 180 / Math.PI + 180 + 360) % 360;
+      tgx = px; tgy = py;
+    }
+
+    function ambient(now) {                           // slow figure-eight when idle on touch
+      var t = (now - t0) / 1000, w = heroEl.offsetWidth, hh = Math.min(heroEl.offsetHeight, innerHeight);
+      aimAt(w * (0.5 + 0.38 * Math.sin(t * 0.35)), hh * (0.22 + 0.16 * Math.sin(t * 0.7)));
+    }
+
+    function eStep(now) {
+      if (!fine && !touching) ambient(now);
+      var k = fine ? 0.12 : 0.08;
+      cx += (tx - cx) * k; cy += (ty - cy) * k;
+      gx += (tgx - gx) * 0.16; gy += (tgy - gy) * 0.16;
+      var da = ((ta - ca + 540) % 360) - 180;         // shortest way round
+      ca += da * 0.15;
+      eclipse.style.setProperty("--ex", cx.toFixed(2) + "px");
+      eclipse.style.setProperty("--ey", cy.toFixed(2) + "px");
+      eclipse.style.setProperty("--rim-angle", ca.toFixed(1) + "deg");
+      glow.style.setProperty("--gx", gx.toFixed(1) + "px");
+      glow.style.setProperty("--gy", gy.toFixed(1) + "px");
+      var settled = fine && Math.abs(tx - cx) < 0.05 && Math.abs(ty - cy) < 0.05 && Math.abs(da) < 0.1 &&
+        Math.abs(tgx - gx) < 0.3 && Math.abs(tgy - gy) < 0.3;
+      eRaf = settled ? 0 : requestAnimationFrame(eStep);
+    }
+    function eKick() { if (!eRaf && heroVisible) eRaf = requestAnimationFrame(eStep); }
+    function local(e) { var r = heroEl.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; }
+
+    // Start the glow where the ring's centre is, so it never jumps in from 0,0.
+    gx = tgx = heroEl.offsetWidth / 2; gy = tgy = Math.min(heroEl.offsetHeight, innerHeight) * 0.4;
+
+    if (fine) {
+      heroEl.addEventListener("pointermove", function (e) {
+        var p = local(e); aimAt(p[0], p[1]); heroEl.classList.add("lit"); eKick();
+      });
+      heroEl.addEventListener("pointerleave", function () {
+        tx = 0; ty = 0; ta = 180; heroEl.classList.remove("lit"); eKick();
+      });
+    } else {
+      heroEl.classList.add("lit");
+      // Passive listeners: never block scrolling.
+      heroEl.addEventListener("touchstart", function (e) { touching = true; var p = local(e.touches[0]); aimAt(p[0], p[1]); }, { passive: true });
+      heroEl.addEventListener("touchmove", function (e) { var p = local(e.touches[0]); aimAt(p[0], p[1]); }, { passive: true });
+      heroEl.addEventListener("touchend", function () { touching = false; }, { passive: true });
+      heroEl.addEventListener("touchcancel", function () { touching = false; }, { passive: true });
+    }
+
+    new IntersectionObserver(function (en) {
+      heroVisible = en[0].isIntersecting;
+      if (!heroVisible) { cancelAnimationFrame(eRaf); eRaf = 0; } else eKick();
+    }).observe(heroEl);
+    eKick();
+  }
+
   /* ─── Copy buttons ─────────────────────────────────────────────────── */
   document.querySelectorAll("[data-copy]").forEach(function (btn) {
     btn.addEventListener("click", function () {

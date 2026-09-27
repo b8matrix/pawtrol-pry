@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Pawtrol: the browser agent that keeps your data on your device</title>
   <meta name="description" content="Pawtrol is a Chrome extension with an AI agent inside. It fills forms and clicks through pages for you, and hides your passwords, ID numbers and faces on your device before any model sees the page." />
-  <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-  <meta name="theme-color" content="#0b0e12" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#fafafa" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#131416" media="(prefers-color-scheme: dark)" />
   <link rel="icon" href="assets/icon48.png" />
   <script>
     (function () {
@@ -18,15 +18,15 @@
   </script>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Instrument+Serif&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="site.css" />
 </head>
 <body>
 <!--
 THESIS: Two columns, the whole way down: your real screen on the left, what the cloud model received on the right. Refuses the category default of headline + product screenshot + feature-card grid.
-OWN-WORLD: Pawtrol Run Ledger. Drafting-white / blueprint-night paper, steel-blue ink, hairline and dashed rules, crosshair frames, Barlow Condensed uppercase labels, mono only for data and tokens, opaque dark mask bars.
+OWN-WORLD: Quiet monochrome after lazy.so. Near-black (or paper) ground, an eclipse ring and light flare behind the hero, grain, double-bordered glass frames, Inter with an Instrument Serif grey second voice, mono only for data and tokens. Blue only on downloads and redaction tokens.
 STORY: Visitor sees a form with fake Aadhaar/PAN/card on the left turn into tokens on the right, learns the four-step loop, watches a screenshot get masked and verified, trusts the safeguards, downloads the ZIP and loads it unpacked.
-FIRST VIEWPORT: Headline and lede top-left, Download ZIP primary button under it; below, twin crosshair panes "Your screen" / "What the cloud saw" with a live scan animation.
+FIRST VIEWPORT: Centered headline and lede inside the eclipse, Download primary button under it; below, twin glass panes "Your screen" / "What the cloud saw" with a live scan animation.
 FORM: Split screen, candidate 2 of 7; seed 9165a5cf.
 FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
 -->
@@ -73,9 +73,11 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 <main id="top">
   <!-- ─── Hero ───────────────────────────────────────────────── -->
   <section class="hero">
+    <div class="eclipse" aria-hidden="true"></div>
+    <div class="hero-glow" aria-hidden="true"></div>
     <div class="wrap">
       <div class="hero-copy">
-        <h1>An AI agent for your browser that never sees <em>your data</em>.</h1>
+        <h1>An AI agent for your browser <span class="serif">that never sees your data.</span></h1>
         <p class="lede">Pawtrol is a Chrome extension. Tell it what to do on a page, like “fill this form”, and it clicks and types for you. Before any page text or screenshot leaves your computer, it hides your passwords, ID numbers, card numbers and faces. The AI works with placeholders, and Pawtrol types the real values in locally.</p>
         <div class="cta-row">
           <a class="btn btn-primary" href="pawtrol-extension.zip" download>
@@ -87,8 +89,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
       </div>
 
       <div class="twin" data-hero>
-        <div class="frame ruled pane device">
-          <i class="cross tl"></i><i class="cross tr"></i><i class="cross bl"></i><i class="cross br"></i>
+        <div class="frame pane device">
           <div class="pane-head"><span class="label">Your screen</span><span class="where">on your device</span></div>
           <div class="mock">
             <div class="scan" aria-hidden="true"></div>
@@ -115,8 +116,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
         <div class="twin-bridge" aria-hidden="true"><svg class="ico" viewBox="0 0 16 16"><path d="M2.5 8h11M9.5 4 13.5 8l-4 4" /></svg></div>
 
-        <div class="frame ruled pane cloud">
-          <i class="cross tl"></i><i class="cross tr"></i><i class="cross bl"></i><i class="cross br"></i>
+        <div class="frame pane cloud">
           <div class="pane-head"><span class="label">What the cloud saw</span><span class="where">sent to the model</span></div>
           <div class="mock">
             <div class="mock-url"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><rect x="3.5" y="7" width="9" height="6.5" rx="1" /><path d="M5.5 7V5a2.5 2.5 0 0 1 5 0v2" /></svg>forms.example/kyc</div>
@@ -145,7 +145,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   <section class="section" id="how">
     <div class="wrap">
       <div class="section-head">
-        <h2>The model plans the task. It never needs the real values.</h2>
+        <h2>The model plans the task. <span class="serif">It never needs the real values.</span></h2>
         <p>To fill an Aadhaar field, the AI only has to know there <em>is</em> an Aadhaar number and where it goes. Pawtrol keeps the number and types it in itself.</p>
       </div>
 
@@ -175,8 +175,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
 
         <div class="stage-col">
           <div class="stage" data-step="1" aria-hidden="true">
-            <div class="frame ruled">
-              <i class="cross tl"></i><i class="cross tr"></i><i class="cross bl"></i><i class="cross br"></i>
+            <div class="frame">
               <div class="stage-grid">
                 <div class="device-side">
                   <span class="label">Your device</span>
@@ -226,12 +225,11 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   <section class="section" id="screenshots">
     <div class="wrap">
       <div class="section-head">
-        <h2>Screenshots get the same treatment, and a second check.</h2>
+        <h2>Screenshots get the same treatment, <span class="serif">and a second check.</span></h2>
         <p>Some data is drawn as pixels, like a scanned ID card, where page code can’t see it. So Pawtrol runs small vision models in your browser, masks what they find, then reads the masked image again to make sure nothing slipped through.</p>
       </div>
 
       <div class="frame film" data-film data-ch="0">
-        <i class="cross tl"></i><i class="cross tr"></i><i class="cross bl"></i><i class="cross br"></i>
         <div class="film-screen" aria-hidden="true">
           <div class="shot">
             <div class="shot-bar"><i></i><i></i><i></i><span></span></div>
@@ -288,7 +286,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   <section class="section" id="safeguards">
     <div class="wrap">
       <div class="section-head">
-        <h2>Every way out is guarded.</h2>
+        <h2>Every way out <span class="serif">is guarded.</span></h2>
         <p>Redaction is only one layer. These checks run on every task, and you can see what each one did.</p>
       </div>
       <div class="ledger">
@@ -306,7 +304,7 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   <section class="section" id="setup">
     <div class="wrap">
       <div class="section-head">
-        <h2>Set it up in about two minutes.</h2>
+        <h2>Set it up <span class="serif">in about two minutes.</span></h2>
         <p>Pawtrol isn’t on the Chrome Web Store yet, so you load it yourself. It works in Chrome on Windows, macOS and Linux.</p>
       </div>
       <div class="setup">
@@ -323,7 +321,6 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
         </ol>
 
         <aside class="frame providers" aria-labelledby="prov-h">
-          <i class="cross tl"></i><i class="cross tr"></i><i class="cross bl"></i><i class="cross br"></i>
           <h3 id="prov-h">Works with the model you already use</h3>
           <p>Bring your own key. It’s stored only in your browser.</p>
           <ul class="prov-list">
@@ -359,10 +356,9 @@ FINISH: unreviewed and undocumented is unfinished; this build ends with the fini
   <!-- ─── Close ──────────────────────────────────────────────── -->
   <section class="close">
     <div class="wrap">
-      <div class="frame ruled">
-        <i class="cross tl"></i><i class="cross tr"></i><i class="cross bl"></i><i class="cross br"></i>
+      <div class="frame">
         <div>
-          <h2>Let it do the clicking. Keep what’s yours.</h2>
+          <h2>Let it do the clicking. <span class="serif">Keep what’s yours.</span></h2>
           <p>Download Pawtrol, load it in Chrome, and try it on a form you’d normally fill in by hand.</p>
         </div>
         <div class="cta-col">
